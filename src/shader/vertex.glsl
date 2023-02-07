@@ -15,10 +15,11 @@ void main () {
   // modelPosition.z += sin(modelPosition.x * 10. + u_time) * .1;
   // modelPosition.z += sin(modelPosition.x * 10. + u_time) * .1;
   // modelPosition.x += cos(modelPosition.y * 10. + u_time) * .01;
+  // modelPosition.z += sin(modelPosition.x * 10. + u_scroll) * .1;
 
   // float dist = length(modelPosition.xy);
   // modelPosition.y += sin(dist) * .01;
-  modelPosition.y += u_scroll;
+  // modelPosition.y += u_scroll;
 
   // position setting
   vec4 viewPosition = viewMatrix * modelPosition;

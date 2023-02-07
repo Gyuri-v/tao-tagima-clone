@@ -33,26 +33,26 @@ const App = function () {
       image: './resources/images/AJINOMOTO.jpeg',
       material: null,
     },
-    // {
-    //   name: 'MN concept movie',
-    //   image: './resources/images/MN.jpeg',
-    //   material: null,
-    // },
-    // {
-    //   name: 'TELE-PLAY - prism',
-    //   image: './resources/images/prism.jpeg',
-    //   material: null,
-    // },
-    // {
-    //   name: 'CITIZEN - ATTESA',
-    //   image: './resources/images/ATTESA.jpeg',
-    //   material: null,
-    // },
-    // {
-    //   name: 'FUTURE FOOD TALK',
-    //   image: './resources/images/AJINOMOTO.jpeg',
-    //   material: null,
-    // },
+    {
+      name: 'MN concept movie',
+      image: './resources/images/MN.jpeg',
+      material: null,
+    },
+    {
+      name: 'TELE-PLAY - prism',
+      image: './resources/images/prism.jpeg',
+      material: null,
+    },
+    {
+      name: 'CITIZEN - ATTESA',
+      image: './resources/images/ATTESA.jpeg',
+      material: null,
+    },
+    {
+      name: 'FUTURE FOOD TALK',
+      image: './resources/images/AJINOMOTO.jpeg',
+      material: null,
+    },
   ];
 
   let $canvas;
@@ -126,8 +126,11 @@ const App = function () {
   };
 
   // Setting -------------------
-  let dGeometry, dMaterial;
+  let dGeometry, dMaterial, dMesh;
+  let meshSize, meshHeight, meshWidth;
+  let row = 3;
   const setModels = function () {
+    // default geometry, material
     dGeometry = new THREE.PlaneGeometry(1.8, 1, 512, 512);
     dMaterial = new THREE.ShaderMaterial({
       side: THREE.DoubleSide,
@@ -142,7 +145,7 @@ const App = function () {
       fragmentShader: fragmentShader,
     });
 
-    // plane 만들기
+    // plane meshes 만들기
     for (let i = 0; i < works.length; i++) {
       const material = dMaterial.clone();
       const texture = textureLoader.load(works[i].image);
@@ -153,63 +156,74 @@ const App = function () {
       scene.add(mesh);
       works[i].mesh = mesh;
       works[i].material = material;
-      // worksGroup.add(mesh);
     }
-    console.log(works);
+    dMesh = works[0].mesh;
 
-    // ------------------------
+    // default mesh 사이즈 구하기
+    meshSize = new THREE.Box3().setFromObject(dMesh);
+    meshHeight = meshSize.max.y - meshSize.min.y;
+    meshWidth = meshSize.max.x - meshSize.min.x;
 
-    const plane = works[0].mesh;
-
+    // plane meshes scale 값 정하기
     const containerRect = $container.getBoundingClientRect();
     const targetRect = $meshArea.getBoundingClientRect();
-
-    const targetMargin = 30;
-
-    const marginValue = getWorldPosition(60, 60);
-    // -------------------- 이거 구하기
-
-    const meshSize = new THREE.Box3().setFromObject(plane);
-    const meshHeight = meshSize.max.y - meshSize.min.y;
-
-    const cameraDistanceFromMesh = camera.position.distanceTo(plane.position);
-
-    camera.fov = 2 * (180 / Math.PI) * Math.atan(meshHeight / (2 * cameraDistanceFromMesh));
-    camera.updateProjectionMatrix();
-
     const scale = targetRect.height / containerRect.height;
 
-    camera.setViewOffset(ww, wh, ww / 2 - targetRect.width / 2 - (targetRect.left - 0), wh / 2 - targetRect.height / 2 - (targetRect.top - 0), ww, wh);
+    const targetMargin = 30;
+    const marginValue = getWorldPosition(60, 100);
 
+    // camera fov, viewOffset 변경
+    changeCameraFov(camera, dMesh);
+    changeSizingViewOffset(targetRect, ww, wh);
+
+    // plane meshes 위치, 스케일 정하기
     for (let i = 0; i < works.length; i++) {
       const item = works[i].mesh;
 
-      item.position.x = (meshSize.max.x - meshSize.min.x + marginValue.x) * scale * (i % 2);
-      item.position.y = -(meshHeight + marginValue.y) * scale * Math.floor(i / 2);
+      item.position.x = (meshWidth + marginValue.x) * scale * (i % row);
+      item.position.y = -(meshHeight + meshHeight) * scale * Math.floor(i / row);
 
       item.scale.set(scale, scale, scale);
     }
   };
 
-  // const changeSizingViewOffset = function (camera, mesh, width, height) {
-  //   modelInfo.obj.scale.set(mesh.scale, mesh.scale, mesh.scale * 50);
-  //   camera.setViewOffset(width, height, mesh.offset.x, mesh.offset.y, width, height);
-  //   renderRequest();
-  // };
-
   const setEvent = function () {
-    window.addEventListener('scroll', function (e) {
-      // worksGroup.position.y = -window.scrollY / 256;
-      // console.log(window.scrollY);
+    window.addEventListener('scroll', scroll);
+  };
 
-      const scrollWorldValue = getWorldPosition(0, window.scrollY).y / 5;
-      console.log(scrollWorldValue);
+  // Scroll -----------------
+  const scroll = function (e) {
+    // const scrollWorldValue = getWorldPosition(0, window.scrollY).y / 5;
+    for (let i = 0; i < works.length; i++) {
+      works[i].material.uniforms.u_scroll.value = window.scrollY;
+    }
+    const targetRect = $meshArea.getBoundingClientRect();
+    changeSizingViewOffset(targetRect, ww, wh);
+  };
 
-      for (let i = 0; i < works.length; i++) {
-        works[i].material.uniforms.u_scroll.value = scrollWorldValue;
-      }
-      // console.log(scrollWorldValue);
-    });
+  // Change -----------------
+  const changeCameraFov = function (camera, targetMesh) {
+    const meshSize = new THREE.Box3().setFromObject(targetMesh);
+    const meshHeight = meshSize.max.y - meshSize.min.y;
+    const meshWidth = meshSize.max.x - meshSize.min.x;
+
+    const cameraDistanceFromMesh = camera.position.distanceTo(targetMesh.position);
+
+    camera.fov = 2 * (180 / Math.PI) * Math.atan(meshHeight / (2 * cameraDistanceFromMesh));
+    camera.updateProjectionMatrix();
+  };
+
+  const changeSizingViewOffset = function (targetRect, ww, wh) {
+    console.log(targetRect);
+    camera.setViewOffset(
+      //
+      ww,
+      wh,
+      ww / 2 - targetRect.width / 2 - (targetRect.left - 0),
+      wh / 2 - targetRect.height / 2 - (targetRect.top - 0),
+      ww,
+      wh,
+    );
   };
 
   // Get --------------------

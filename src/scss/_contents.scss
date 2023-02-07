@@ -19,8 +19,7 @@
 
 .content_inner {
   width: 100%;
-  max-width: 1000px;
-  padding: 0 20px;
+  max-width: calc(325px * 3 + 120px);
   margin: 0 auto;
 }
 
@@ -28,16 +27,20 @@
   padding: 100px 0;
 
   .list-wrap {
-    border: 1px solid blue;
     opacity: 0.2;
     display: flex;
     flex-wrap: wrap;
   }
 
   .list-item {
+    cursor: pointer;
     border: 1px solid red;
-    width: calc(50% - 60px);
-    margin: 30px;
+    width: 325px;
+    margin: 0 60px 185px 0;
+
+    &:nth-child(3n) {
+      margin-right: 0;
+    }
 
     img {
       max-width: 100%;
