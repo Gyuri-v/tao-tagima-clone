@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { gsap } from 'gsap';
 
 import vertexShader from '../shader/vertex.glsl';
@@ -8,13 +7,33 @@ import fragmentShader from '../shader/fragment.glsl';
 const DEBUG = location.search.indexOf('debug') > -1;
 
 const App = function () {
+  // Dom
+  let $canvas;
+  const $container = document.querySelector('.container');
+  const $listWrap = $container.querySelector('.list-wrap');
+  const $listNodes = $container.querySelectorAll('.list-item');
+  const $meshArea = $container.querySelector('.list-item_1 img');
+
+  // Values
   let ww, wh;
-  let renderer, scene, camera, light, textureLoader, clock, raycaster;
+  let renderer, scene, camera, light, textureLoader, raycaster;
   let pointer = new THREE.Vector2();
   let meshes = [];
   let meshScale;
   let initScrollTop;
   const imageRatio = { width: 1, height: 1 };
+
+  let currentHoverMesh = null;
+  let currentHoverIndex = null;
+  const hoveredMeshes = [];
+  let hoverScale = 1.25;
+
+  const parameters = {
+    fitMeshScale: 0,
+    initScrollTop: 0,
+    imageRatio: { width: 1, height: 1 },
+    hoverScale: 1.25,
+  };
 
   const works = [
     {
@@ -57,11 +76,27 @@ const App = function () {
       image: './resources/images/AJINOMOTO.jpeg',
       material: null,
     },
+    {
+      name: 'MN concept movie',
+      image: './resources/images/MN.jpeg',
+      material: null,
+    },
+    {
+      name: 'TELE-PLAY - prism',
+      image: './resources/images/prism.jpeg',
+      material: null,
+    },
+    {
+      name: 'CITIZEN - ATTESA',
+      image: './resources/images/ATTESA.jpeg',
+      material: null,
+    },
+    {
+      name: 'FUTURE FOOD TALK',
+      image: './resources/images/AJINOMOTO.jpeg',
+      material: null,
+    },
   ];
-
-  let $canvas;
-  const $container = document.querySelector('.container');
-  const $meshArea = $container.querySelector('.list-item_1 img');
 
   const init = function () {
     // Window
@@ -88,9 +123,6 @@ const App = function () {
     light = new THREE.AmbientLight('#fff', 1);
     scene.add(light);
 
-    // Clock
-    clock = new THREE.Clock();
-
     // Loader
     textureLoader = new THREE.TextureLoader();
 
@@ -102,6 +134,7 @@ const App = function () {
     imageRatio.width = 1.777; ////////// ------------ 계산식 만들기
 
     // Setting
+    setListStyle();
     setModels();
 
     // Loading
@@ -127,6 +160,46 @@ const App = function () {
   };
 
   // Setting -------------------
+  const setListStyle = function () {
+    // for (let i = 0; i < $listNodes.length; i++) {
+    //   const item = $listNodes[i];
+    //   console.log(item);
+    // }
+    // console.log($listNodes[0]);
+    $listNodes[0].style.transform = `matrix(1, 0, 0, 1, 0, ${0})`;
+    $listNodes[1].style.transform = `matrix(1, 0, 0, 1, 0, ${scrollY * -0.3 - 15})`;
+    $listNodes[2].style.transform = `matrix(1, 0, 0, 1, 0, ${0})`;
+    $listNodes[3].style.transform = `matrix(1, 0, 0, 1, 0, ${0})`;
+    $listNodes[4].style.transform = `matrix(1, 0, 0, 1, 0, ${0})`;
+    $listNodes[5].style.transform = `matrix(1, 0, 0, 1, 0, ${0})`;
+    $listNodes[6].style.transform = `matrix(1, 0, 0, 1, 0, ${0})`;
+    $listNodes[7].style.transform = `matrix(1, 0, 0, 1, 0, ${0})`;
+  };
+  // const setList = function () {
+  //   for (let i = 0; i < works.length; i++) {
+  //     const item = works[i];
+
+  //     const list = document.createElement('div');
+  //     list.classList.add('list-item');
+
+  //     let listInner = '';
+  //     listInner += `<span class="num">${i}</span>`;
+  //     listInner += `<div class="image-wrap">`;
+  //     listInner += `  <img src="${item.image}" alt="" />`;
+  //     listInner += `</div>`;
+  //     listInner += `<div class="text-wrap">`;
+  //     listInner += `  <strong class="title">${item.name}</strong>`;
+  //     listInner += `</div>`;
+
+  //     list.innerHTML = listInner;
+
+  //     $listWrap.appendChild(list);
+  //     item.listNode = list;
+  //   }
+
+  //   $meshArea = works[0].listNode.querySelector('img');
+  // };
+
   const setModels = function () {
     let dGeometry, dMaterial, dMesh;
     let meshSize, meshHeight, meshWidth;
@@ -176,7 +249,7 @@ const App = function () {
     meshScale = targetRect.height / wh;
 
     const marginValue = {
-      x: 60 / 183,
+      x: 60 / 183, // meshHeight = 183px = three 1 이니까 60/183으로 일단 비율  ----------------- 계산 구하기!!!!!!!!!!!!!!
       y: meshHeight,
     };
 
@@ -190,6 +263,9 @@ const App = function () {
 
       item.position.x = (meshWidth + marginValue.x) * meshScale * (i % row);
       item.position.y = -(meshHeight + meshHeight) * meshScale * Math.floor(i / row);
+      if (i === 1) {
+        item.position.y = -(meshHeight + meshHeight) * meshScale * Math.floor(i / row) - (scrollY * -0.3 - 15) / wh;
+      }
       item.savePosition = item.position.clone();
 
       item.scale.set(meshScale, meshScale, meshScale);
@@ -198,15 +274,21 @@ const App = function () {
 
   const setEvent = function () {
     window.addEventListener('scroll', onScroll);
-    $canvas.addEventListener('mousemove', onMouseMove);
-
-    // onScroll();
+    window.addEventListener('mousemove', onMouseMove);
+    // $listNodes.forEach(function (node, index) {
+    //   node.index = index;
+    //   node.addEventListener('mouseenter', onMouseEnterList);
+    //   node.addEventListener('mouseleave', onMouseLeaveList);
+    // });
   };
 
   // Mouse
-  let currentHoverMesh = null;
-  const hoveredMeshes = [];
-  let hoverScale = 1.25;
+  // const onMouseEnterList = function (e) {
+  //   currentHoverIndex = e.target.index;
+  // };
+  // const onMouseLeaveList = function (e) {
+  //   currentHoverIndex = null;
+  // };
 
   const onMouseMove = function (e) {
     pointer.x = (e.clientX / ww) * 2 - 1;
@@ -292,9 +374,18 @@ const App = function () {
   // Scroll -----------------
   const onScroll = function (e) {
     // const scrollRatio = scrollY / wh / meshScale;
-    const scrollRatio = (scrollY - initScrollTop) / wh;
+    let scrollRatio = (scrollY - initScrollTop) / wh;
+
+    // setListStyle();
 
     for (let i = 0; i < works.length; i++) {
+      // if (i === 1) {
+      //   let scrollRatio = ((scrollY * -0.3 - 15) / wh - initScrollTop) / wh;
+      //   works[i].mesh.position.y = works[i].mesh.savePosition.y + scrollRatio;
+      // } else {
+      //   let scrollRatio = (scrollY - initScrollTop) / wh;
+      //   works[i].mesh.position.y = works[i].mesh.savePosition.y + scrollRatio;
+      // }\
       // works[i].material.uniforms.u_scroll.value = scrollRatio;
       works[i].mesh.position.y = works[i].mesh.savePosition.y + scrollRatio;
     }

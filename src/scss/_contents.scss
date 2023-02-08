@@ -1,4 +1,7 @@
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap');
+
 * {
+  font-family: 'Montserrat';
   box-sizing: border-box;
 }
 
@@ -8,7 +11,7 @@
   }
 
   canvas {
-    // pointer-events: none;
+    pointer-events: none;
     position: fixed;
     top: 0;
     left: 0;
@@ -27,7 +30,7 @@
   padding: 100px 0;
 
   .list-wrap {
-    opacity: 0.2;
+    // opacity: 0.2;
     display: flex;
     flex-wrap: wrap;
   }
@@ -42,7 +45,19 @@
       margin-right: 0;
     }
 
+    .num {
+      display: block;
+      position: absolute;
+      top: -24px;
+      left: 0;
+      font-size: 24px;
+      font-weight: 400;
+      color: #000;
+      transition: transform 0.3s;
+    }
+
     .image-wrap {
+      opacity: 0.3;
       img {
         display: block;
         max-width: 100%;
@@ -52,9 +67,22 @@
     .text-wrap {
       position: absolute;
       top: calc(100% + 15px);
-      font-size: 20px;
-      font-weight: 400;
-      color: #000;
+      transition: transform 0.3s;
+
+      .title {
+        font-size: 20px;
+        font-weight: 400;
+        color: #000;
+      }
+    }
+
+    &:hover {
+      .num {
+        transform: translate3d(0, 30px, 0);
+      }
+      .text-wrap {
+        transform: translate3d(0, -30px, 0);
+      }
     }
   }
 }
