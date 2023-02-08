@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+import { gsap } from 'gsap';
 
 import vertexShader from '../shader/vertex.glsl';
 import fragmentShader from '../shader/fragment.glsl';
@@ -8,8 +9,11 @@ const DEBUG = location.search.indexOf('debug') > -1;
 
 const App = function () {
   let ww, wh;
-  let renderer, scene, camera, light, controls, textureLoader, clock;
-  let isRequestRender = false;
+  let renderer, scene, camera, light, controls, textureLoader, clock, raycaster;
+  let pointer = new THREE.Vector2();
+  let meshes = [];
+  let meshScale;
+  let initScrollTop;
 
   const worksGroup = new THREE.Group();
   const works = [
@@ -76,7 +80,7 @@ const App = function () {
     $container.appendChild($canvas);
 
     // Camera
-    camera = new THREE.PerspectiveCamera(70, ww / wh, 1, 999);
+    camera = new THREE.PerspectiveCamera(45, ww / wh, 1, 1000);
     camera.position.set(0, 0, 2);
     scene.add(camera);
 
@@ -87,7 +91,6 @@ const App = function () {
     // Controls
     if (DEBUG) {
       controls = new OrbitControls(camera, $canvas);
-      controls.addEventListener('change', renderRequest);
     }
 
     // Clock
@@ -96,20 +99,22 @@ const App = function () {
     // Loader
     textureLoader = new THREE.TextureLoader();
 
+    // Raycaster
+    raycaster = new THREE.Raycaster();
+
     // Setting
     setModels();
-
-    // Render
-    renderRequest();
-    render();
 
     // Loading
     THREE.DefaultLoadingManager.onProgress = function (url, itemsLoaded, itemsTotal) {
       if (itemsLoaded === itemsTotal) {
         setEvent();
-        render();
+        gsap.ticker.add(render);
       }
     };
+
+    // Value
+    initScrollTop = scrollY;
   };
 
   const resize = function () {
@@ -122,24 +127,27 @@ const App = function () {
     renderer.setSize(ww, wh);
     renderer.setPixelRatio(Math.min(2, window.devicePixelRatio));
 
-    renderRequest();
+    initScrollTop = scrollY;
   };
 
   // Setting -------------------
-  let dGeometry, dMaterial, dMesh;
-  let meshSize, meshHeight, meshWidth;
-  let row = 3;
   const setModels = function () {
+    let dGeometry, dMaterial, dMesh;
+    let meshSize, meshHeight, meshWidth;
+    let row = 3;
+
     // default geometry, material
-    dGeometry = new THREE.PlaneGeometry(1.8, 1, 512, 512);
+    dGeometry = new THREE.PlaneGeometry(1.8, 1, 50, 50);
     dMaterial = new THREE.ShaderMaterial({
       side: THREE.DoubleSide,
       transparent: true,
       uniforms: {
         u_texture: { type: 'f', value: null },
-        u_resolution: { type: 'v2', value: new THREE.Vector2(ww, wh) },
         u_time: { type: 'f', value: 0 },
-        u_scroll: { type: 'f', value: 0 },
+        u_hover: { value: new THREE.Vector3() },
+
+        // u_scroll: { type: 'f', value: 0 },
+        // u_resolution: { type: 'v2', value: new THREE.Vector2(ww, wh) },
       },
       vertexShader: vertexShader,
       fragmentShader: fragmentShader,
@@ -156,6 +164,7 @@ const App = function () {
       scene.add(mesh);
       works[i].mesh = mesh;
       works[i].material = material;
+      meshes.push(mesh);
     }
     dMesh = works[0].mesh;
 
@@ -167,10 +176,10 @@ const App = function () {
     // plane meshes scale 값 정하기
     const containerRect = $container.getBoundingClientRect();
     const targetRect = $meshArea.getBoundingClientRect();
-    const scale = targetRect.height / containerRect.height;
+    meshScale = targetRect.height / containerRect.height;
 
     const targetMargin = 30;
-    const marginValue = getWorldPosition(60, 100);
+    const marginValue = getWorldValue(60, 100);
 
     // camera fov, viewOffset 변경
     changeCameraFov(camera, dMesh);
@@ -180,32 +189,79 @@ const App = function () {
     for (let i = 0; i < works.length; i++) {
       const item = works[i].mesh;
 
-      item.position.x = (meshWidth + marginValue.x) * scale * (i % row);
-      item.position.y = -(meshHeight + meshHeight) * scale * Math.floor(i / row);
+      item.position.x = (meshWidth + marginValue.x) * meshScale * (i % row);
+      item.position.y = -(meshHeight + meshHeight) * meshScale * Math.floor(i / row);
+      works[i].positionY = item.position.y;
 
-      item.scale.set(scale, scale, scale);
+      item.scale.set(meshScale, meshScale, meshScale);
     }
   };
 
   const setEvent = function () {
-    window.addEventListener('scroll', scroll);
+    window.addEventListener('scroll', onScroll);
+    $canvas.addEventListener('mousemove', onMouseMove);
+
+    // onScroll();
+  };
+
+  // Mouse
+  let pointerTween;
+  let pointerValue = new THREE.Vector3();
+  let currentHoverMesh = null;
+  const hoverMeshes = [];
+
+  const onMouseMove = function (e) {
+    pointer.x = (e.clientX / ww) * 2 - 1;
+    pointer.y = -(e.clientY / wh) * 2 + 1;
+
+    raycaster.setFromCamera(pointer, camera);
+
+    const intersected = raycaster.intersectObjects(meshes);
+    if (intersected[0]) {
+      const plane = intersected[0].object;
+      const planeHoverUniform = plane.material.uniforms.u_hover.value;
+      hoverMeshes.push(plane);
+
+      // ----------- 이건 뭘까..
+      if (!planeHoverUniform.z) {
+        planeHoverUniform.x = intersected[0].uv.x;
+        planeHoverUniform.y = intersected[0].uv.y;
+      }
+
+      plane.userData.hoverTween && plane.userData.hoverTween.kill();
+      plane.userData.hoverTween = gsap.to(planeHoverUniform, 0.75, {
+        x: intersected[0].uv.x,
+        y: intersected[0].uv.y,
+        z: 1,
+        ease: 'cubic.out',
+      });
+    } else {
+      if (hoverMeshes.length > 0) {
+        for (let i = 0; i < hoverMeshes.length; i++) {
+          const plane = hoverMeshes[i];
+          const planeHoverUniform = plane.material.uniforms.u_hover.value;
+          plane.userData.hoverTween.kill();
+          plane.userData.hoverTween = gsap.to(planeHoverUniform, 0.35, { z: 0, ease: 'cubic.out' });
+        }
+      }
+    }
   };
 
   // Scroll -----------------
-  const scroll = function (e) {
-    // const scrollWorldValue = getWorldPosition(0, window.scrollY).y / 5;
+  const onScroll = function (e) {
+    // const scrollRatio = scrollY / wh / meshScale;
+    const scrollRatio = (scrollY - initScrollTop) / wh;
+
     for (let i = 0; i < works.length; i++) {
-      works[i].material.uniforms.u_scroll.value = window.scrollY;
+      // works[i].material.uniforms.u_scroll.value = scrollRatio;
+      works[i].mesh.position.y = works[i].positionY + scrollRatio;
     }
-    const targetRect = $meshArea.getBoundingClientRect();
-    changeSizingViewOffset(targetRect, ww, wh);
   };
 
   // Change -----------------
   const changeCameraFov = function (camera, targetMesh) {
     const meshSize = new THREE.Box3().setFromObject(targetMesh);
     const meshHeight = meshSize.max.y - meshSize.min.y;
-    const meshWidth = meshSize.max.x - meshSize.min.x;
 
     const cameraDistanceFromMesh = camera.position.distanceTo(targetMesh.position);
 
@@ -214,7 +270,6 @@ const App = function () {
   };
 
   const changeSizingViewOffset = function (targetRect, ww, wh) {
-    console.log(targetRect);
     camera.setViewOffset(
       //
       ww,
@@ -227,7 +282,7 @@ const App = function () {
   };
 
   // Get --------------------
-  const getWorldPosition = function (px, py) {
+  const getWorldValue = function (px, py) {
     const localPoint = new THREE.Vector3(px / 256, py / 256, 0.5);
     const worldPoint = new THREE.Object3D().localToWorld(localPoint);
 
@@ -235,39 +290,29 @@ const App = function () {
   };
 
   // Render -------------------
-  const renderRequest = function () {
-    isRequestRender = true;
-  };
-
-  let elapsedTime = 0;
-  const render = function () {
-    elapsedTime = clock.getElapsedTime();
-    // dMaterial.uniforms.u_time.value = elapsedTime;
-    // console.log(elapsedTime);
-
-    for (let i = 0; i < works.length; i++) {
-      works[i].material.uniforms.u_time.value = elapsedTime;
-    }
+  const render = function (time, deltaTime) {
+    // for (let i = 0; i < works.length; i++) {
+    //   works[i].material.uniforms.u_time.value += deltaTime * 0.0001;
+    // }
+    works[0].material.uniforms.u_time.value += deltaTime * 0.0001;
 
     renderer.render(scene, camera);
-
-    window.requestAnimationFrame(render);
   };
 
   window.addEventListener('load', init);
   window.addEventListener('resize', resize);
 
   // -------- 함수들
-  // const getWorldPositionFromScreenPosition = (function () {
-  //   const vector = new THREE.Vector3();
-  //   const position = new THREE.Vector3();
-  //   return (x, y) => {
-  //     vector.set((x / ww) * 2 - 1, -(y / wh) * 2 + 1, 0.5);
-  //     vector.unproject(camera);
-  //     vector.sub(camera.position).normalize();
-  //     position.copy(camera.position).add(vector.multiplyScalar(-camera.position.z / vector.z));
-  //     return new THREE.Vector3().copy(position);
-  //   };
-  // })();
+  const getWorldPositionFromScreenPosition = (function () {
+    const vector = new THREE.Vector3();
+    const position = new THREE.Vector3();
+    return (x, y) => {
+      vector.set((x / ww) * 2 - 1, -(y / wh) * 2 + 1, 0.5);
+      vector.unproject(camera);
+      vector.sub(camera.position).normalize();
+      position.copy(camera.position).add(vector.multiplyScalar(-camera.position.z / vector.z));
+      return new THREE.Vector3().copy(position);
+    };
+  })();
 };
 App();

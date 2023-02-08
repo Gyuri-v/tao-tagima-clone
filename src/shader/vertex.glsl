@@ -1,29 +1,27 @@
-uniform vec2 u_resolution;
-uniform float u_time;
-uniform float u_scroll;
-uniform sampler2D u_texture;
+#define PI 3.141592653589793
+#define PI2 6.283185307179586
 
-varying vec2 vUv;
+uniform float u_time;
+uniform sampler2D u_texture;
+uniform vec3 u_hover;
+
+varying vec2 v_uv;
 
 // attribute vec3 position;
 
+
 void main () {
-  vUv = uv;
+  v_uv = uv;
 
-  // position
-  vec4 modelPosition = modelMatrix * vec4(position, 1.);
-  // modelPosition.z += sin(modelPosition.x * 10. + u_time) * .1;
-  // modelPosition.z += sin(modelPosition.x * 10. + u_time) * .1;
-  // modelPosition.x += cos(modelPosition.y * 10. + u_time) * .01;
-  // modelPosition.z += sin(modelPosition.x * 10. + u_scroll) * .1;
+  vec2 xy = uv;
+  xy -= u_hover.xy;
 
-  // float dist = length(modelPosition.xy);
-  // modelPosition.y += sin(dist) * .01;
-  // modelPosition.y += u_scroll;
+  float z = sin((length(xy) - u_time) * PI * 15.0) * 0.08 * u_hover.z;
+  float mask = pow(1.0 - length(xy), 5.);
+  z *= mask;
 
-  // position setting
-  vec4 viewPosition = viewMatrix * modelPosition;
-  vec4 projectedPosition = projectionMatrix * viewPosition;
+  vec3 _position = vec3(position.x, position.y, position.z + z);
+  _position *= 1.2;
 
-  gl_Position = projectedPosition;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(_position, 1.0);
 }
