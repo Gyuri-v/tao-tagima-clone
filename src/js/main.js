@@ -9,13 +9,13 @@ const DEBUG = location.search.indexOf('debug') > -1;
 
 const App = function () {
   let ww, wh;
-  let renderer, scene, camera, light, controls, textureLoader, clock, raycaster;
+  let renderer, scene, camera, light, textureLoader, clock, raycaster;
   let pointer = new THREE.Vector2();
   let meshes = [];
   let meshScale;
   let initScrollTop;
+  const imageRatio = { width: 1, height: 1 };
 
-  const worksGroup = new THREE.Group();
   const works = [
     {
       name: 'MN concept movie',
@@ -61,7 +61,7 @@ const App = function () {
 
   let $canvas;
   const $container = document.querySelector('.container');
-  const $meshArea = $container.querySelector('.list-item_1');
+  const $meshArea = $container.querySelector('.list-item_1 img');
 
   const init = function () {
     // Window
@@ -88,11 +88,6 @@ const App = function () {
     light = new THREE.AmbientLight('#fff', 1);
     scene.add(light);
 
-    // Controls
-    if (DEBUG) {
-      controls = new OrbitControls(camera, $canvas);
-    }
-
     // Clock
     clock = new THREE.Clock();
 
@@ -101,6 +96,10 @@ const App = function () {
 
     // Raycaster
     raycaster = new THREE.Raycaster();
+
+    // Value
+    initScrollTop = scrollY;
+    imageRatio.width = 1.777; ////////// ------------ 계산식 만들기
 
     // Setting
     setModels();
@@ -112,9 +111,6 @@ const App = function () {
         gsap.ticker.add(render);
       }
     };
-
-    // Value
-    initScrollTop = scrollY;
   };
 
   const resize = function () {
@@ -137,14 +133,16 @@ const App = function () {
     let row = 3;
 
     // default geometry, material
-    dGeometry = new THREE.PlaneGeometry(1.8, 1, 50, 50);
+    dGeometry = new THREE.PlaneGeometry(imageRatio.width, imageRatio.height, 50, 50);
     dMaterial = new THREE.ShaderMaterial({
       side: THREE.DoubleSide,
       transparent: true,
       uniforms: {
         u_texture: { type: 'f', value: null },
         u_time: { type: 'f', value: 0 },
-        u_hover: { value: new THREE.Vector3() },
+        u_hover: { type: 'v3', value: new THREE.Vector3() },
+        u_hoverScale: { type: 'f', value: 1 },
+        u_hoverXGap: { type: 'f', value: 0 },
 
         // u_scroll: { type: 'f', value: 0 },
         // u_resolution: { type: 'v2', value: new THREE.Vector2(ww, wh) },
@@ -174,15 +172,16 @@ const App = function () {
     meshWidth = meshSize.max.x - meshSize.min.x;
 
     // plane meshes scale 값 정하기
-    const containerRect = $container.getBoundingClientRect();
     const targetRect = $meshArea.getBoundingClientRect();
-    meshScale = targetRect.height / containerRect.height;
+    meshScale = targetRect.height / wh;
 
-    const targetMargin = 30;
-    const marginValue = getWorldValue(60, 100);
+    const marginValue = {
+      x: 60 / 183,
+      y: meshHeight,
+    };
 
     // camera fov, viewOffset 변경
-    changeCameraFov(camera, dMesh);
+    changeCameraFov(camera, dMesh, meshSize);
     changeSizingViewOffset(targetRect, ww, wh);
 
     // plane meshes 위치, 스케일 정하기
@@ -191,7 +190,7 @@ const App = function () {
 
       item.position.x = (meshWidth + marginValue.x) * meshScale * (i % row);
       item.position.y = -(meshHeight + meshHeight) * meshScale * Math.floor(i / row);
-      works[i].positionY = item.position.y;
+      item.savePosition = item.position.clone();
 
       item.scale.set(meshScale, meshScale, meshScale);
     }
@@ -205,10 +204,9 @@ const App = function () {
   };
 
   // Mouse
-  let pointerTween;
-  let pointerValue = new THREE.Vector3();
   let currentHoverMesh = null;
-  const hoverMeshes = [];
+  const hoveredMeshes = [];
+  let hoverScale = 1.25;
 
   const onMouseMove = function (e) {
     pointer.x = (e.clientX / ww) * 2 - 1;
@@ -219,30 +217,74 @@ const App = function () {
     const intersected = raycaster.intersectObjects(meshes);
     if (intersected[0]) {
       const plane = intersected[0].object;
-      const planeHoverUniform = plane.material.uniforms.u_hover.value;
-      hoverMeshes.push(plane);
+      const planeHoverUniformValue = plane.material.uniforms.u_hover.value;
+      const planeHoverScaleUniform = plane.material.uniforms.u_hoverScale;
+      const planeHoverXgapUniform = plane.material.uniforms.u_hoverXGap;
 
-      // ----------- 이건 뭘까..
-      if (!planeHoverUniform.z) {
-        planeHoverUniform.x = intersected[0].uv.x;
-        planeHoverUniform.y = intersected[0].uv.y;
+      if (currentHoverMesh !== plane) {
+        currentHoverMesh = plane;
+        hoveredMeshes.push(plane);
       }
 
+      // ----------- 이건 뭘까..
+      // if (!planeHoverUniformValue.z) {
+      //   planeHoverUniformValue.x = intersected[0].uv.x;
+      //   planeHoverUniformValue.y = intersected[0].uv.y;
+      // }
+      /// ----------
+
+      // hover x move
+      const positionXGap = plane.position.x - intersected[0].point.x;
+      // hover x move -- mesh 움직이기 -- / 6 정도가 적당
+      // plane.position.x = plane.savePosition.x + positionXGap;
+      // hover x move -- vertex 로 하기
+      // planeHoverXgapUniform.value = positionXGap;
+      plane.userData.hoverXgapTween && plane.userData.hoverXgapTween.kill();
+      plane.userData.hoverXgapTween = gsap.to(planeHoverXgapUniform, 0.35, { value: positionXGap, ease: 'cubic.out' });
+
+      // hover wave
       plane.userData.hoverTween && plane.userData.hoverTween.kill();
-      plane.userData.hoverTween = gsap.to(planeHoverUniform, 0.75, {
-        x: intersected[0].uv.x,
-        y: intersected[0].uv.y,
-        z: 1,
-        ease: 'cubic.out',
-      });
+      plane.userData.hoverTween = gsap.to(planeHoverUniformValue, 0.75, { x: intersected[0].uv.x, y: intersected[0].uv.y, z: 1, ease: 'cubic.out' });
+
+      // hoverScale -- plane 의 scale 을 키우는 방법
+      // plane.userData.hoverScaleTween && plane.userData.hoverScaleTween.kill();
+      // plane.userData.hoverScaleTween = gsap.to(plane.scale, 0.5, { x: hoverScale * meshScale, y: hoverScale * meshScale, z: hoverScale * meshScale, ease: 'cubic.out' });
+
+      // hoverScale -- vertex shader 로 보내는 방법
+      plane.userData.hoverScaleTween && plane.userData.hoverScaleTween.kill();
+      plane.userData.hoverScaleTween = gsap.to(planeHoverScaleUniform, 0.5, { value: hoverScale, ease: 'cubic.out' });
     } else {
-      if (hoverMeshes.length > 0) {
-        for (let i = 0; i < hoverMeshes.length; i++) {
-          const plane = hoverMeshes[i];
-          const planeHoverUniform = plane.material.uniforms.u_hover.value;
-          plane.userData.hoverTween.kill();
-          plane.userData.hoverTween = gsap.to(planeHoverUniform, 0.35, { z: 0, ease: 'cubic.out' });
-        }
+      currentHoverMesh = null;
+    }
+
+    if (hoveredMeshes.length > 0) {
+      for (let i = 0; i < hoveredMeshes.length; i++) {
+        const plane = hoveredMeshes[i];
+        const planeHoverUniformValue = plane.material.uniforms.u_hover.value;
+        const planeHoverScaleUniform = plane.material.uniforms.u_hoverScale;
+        const planeHoverXgapUniform = plane.material.uniforms.u_hoverXGap;
+
+        if (plane == currentHoverMesh) return;
+
+        // hover x move
+        // plane.position.x = plane.savePosition.x;
+        // planeHoverXgapUniform.value = 0;
+        plane.userData.hoverXgapTween && plane.userData.hoverXgapTween.kill();
+        plane.userData.hoverXgapTween = gsap.to(planeHoverXgapUniform, 0.35, { value: 0, ease: 'cubic.out' });
+
+        // hover wave
+        plane.userData.hoverTween && plane.userData.hoverTween.kill();
+        plane.userData.hoverTween = gsap.to(planeHoverUniformValue, 0.35, { x: 0, y: 0, z: 0, ease: 'cubic.out' });
+
+        // hoverScale -- plane 의 scale 을 키우는 방법
+        // plane.userData.hoverScaleTween.kill();
+        // plane.userData.hoverScaleTween = gsap.to(plane.scale, 0.5, { x: 1 * meshScale, y: 1 * meshScale, z: 1 * meshScale, ease: 'cubic.out' });
+
+        // hoverScale -- vertex shader 로 보내는 방법
+        plane.userData.hoverScaleTween && plane.userData.hoverScaleTween.kill();
+        plane.userData.hoverScaleTween = gsap.to(planeHoverScaleUniform, 0.5, { value: 1, ease: 'cubic.out' });
+
+        hoveredMeshes.shift();
       }
     }
   };
@@ -254,16 +296,15 @@ const App = function () {
 
     for (let i = 0; i < works.length; i++) {
       // works[i].material.uniforms.u_scroll.value = scrollRatio;
-      works[i].mesh.position.y = works[i].positionY + scrollRatio;
+      works[i].mesh.position.y = works[i].mesh.savePosition.y + scrollRatio;
     }
   };
 
   // Change -----------------
-  const changeCameraFov = function (camera, targetMesh) {
-    const meshSize = new THREE.Box3().setFromObject(targetMesh);
+  const changeCameraFov = function (camera, targetMesh, meshSize) {
     const meshHeight = meshSize.max.y - meshSize.min.y;
 
-    const cameraDistanceFromMesh = camera.position.distanceTo(targetMesh.position);
+    let cameraDistanceFromMesh = camera.position.distanceTo(targetMesh.position);
 
     camera.fov = 2 * (180 / Math.PI) * Math.atan(meshHeight / (2 * cameraDistanceFromMesh));
     camera.updateProjectionMatrix();
@@ -281,14 +322,6 @@ const App = function () {
     );
   };
 
-  // Get --------------------
-  const getWorldValue = function (px, py) {
-    const localPoint = new THREE.Vector3(px / 256, py / 256, 0.5);
-    const worldPoint = new THREE.Object3D().localToWorld(localPoint);
-
-    return worldPoint;
-  };
-
   // Render -------------------
   const render = function (time, deltaTime) {
     // for (let i = 0; i < works.length; i++) {
@@ -301,18 +334,5 @@ const App = function () {
 
   window.addEventListener('load', init);
   window.addEventListener('resize', resize);
-
-  // -------- 함수들
-  const getWorldPositionFromScreenPosition = (function () {
-    const vector = new THREE.Vector3();
-    const position = new THREE.Vector3();
-    return (x, y) => {
-      vector.set((x / ww) * 2 - 1, -(y / wh) * 2 + 1, 0.5);
-      vector.unproject(camera);
-      vector.sub(camera.position).normalize();
-      position.copy(camera.position).add(vector.multiplyScalar(-camera.position.z / vector.z));
-      return new THREE.Vector3().copy(position);
-    };
-  })();
 };
 App();

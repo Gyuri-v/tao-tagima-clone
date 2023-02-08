@@ -4,7 +4,7 @@
 
 .container {
   section {
-    height: 100vh;
+    // height: 100vh;
   }
 
   canvas {
@@ -34,16 +34,27 @@
 
   .list-item {
     cursor: pointer;
-    border: 1px solid red;
+    position: relative;
     width: 325px;
-    margin: 0 60px 185px 0;
+    margin: 0 60px 183px 0;
 
     &:nth-child(3n) {
       margin-right: 0;
     }
 
-    img {
-      max-width: 100%;
+    .image-wrap {
+      img {
+        display: block;
+        max-width: 100%;
+      }
+    }
+
+    .text-wrap {
+      position: absolute;
+      top: calc(100% + 15px);
+      font-size: 20px;
+      font-weight: 400;
+      color: #000;
     }
   }
 }
