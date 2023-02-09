@@ -1,5 +1,6 @@
 uniform float u_time;
 uniform float u_progress;
+uniform float u_opacity;
 uniform sampler2D u_texture;
 uniform vec2 u_resolution;
 uniform vec2 u_accel;
@@ -39,5 +40,6 @@ void main () {
 
   vec4 rgba = mix(rgba1, rgba2, delay_value);
   gl_FragColor = rgba;
+  gl_FragColor.a = u_opacity;
   // gl_FragColor = vec4(0., .0, delay_value, 1.000); 
 }

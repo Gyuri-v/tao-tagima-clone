@@ -26,14 +26,14 @@ const App = function () {
   let currentHoverMesh = null;
   let currentHoverIndex = null;
   const hoveredMeshes = [];
-  let hoverScale = 1.3;
+  let hoverScale = 1.25;
   let row = 3;
 
   const parameters = {
     fitMeshScale: 0,
     initScrollTop: 0,
     imageRatio: { width: 1, height: 1 },
-    hoverScale: 1.2,
+    hoverScale: 1.25,
   };
 
   const works = [
@@ -166,17 +166,51 @@ const App = function () {
       const valueY = i % row == 1 ? -40 : i % row == 2 ? -17 : 0;
 
       $listNodes[i].style.transform = `translate3d(0, ${valueY}px, 0)`;
-      meshes[i].position.y = meshes[i].c_savePosition.y - valueY / wh;
-      meshes[i].c_savePosition.y = meshes[i].position.y;
+      meshes[i].position.y = meshes[i].savePosition.y - valueY / wh;
+      meshes[i].savePosition.y = meshes[i].position.y;
     }
+    // console.log($listNodes[0]);
+    // $listNodes[0].style.transform = `matrix(1, 0, 0, 1, 0, ${0})`;
+    // $listNodes[1].style.transform = `matrix(1, 0, 0, 1, 0, ${scrollY * -0.3 - 15})`;
+    // $listNodes[2].style.transform = `matrix(1, 0, 0, 1, 0, ${0})`;
+    // $listNodes[3].style.transform = `matrix(1, 0, 0, 1, 0, ${0})`;
+    // $listNodes[4].style.transform = `matrix(1, 0, 0, 1, 0, ${0})`;
+    // $listNodes[5].style.transform = `matrix(1, 0, 0, 1, 0, ${0})`;
+    // $listNodes[6].style.transform = `matrix(1, 0, 0, 1, 0, ${0})`;
+    // $listNodes[7].style.transform = `matrix(1, 0, 0, 1, 0, ${0})`;
   };
+
+  // const setList = function () {
+  //   for (let i = 0; i < works.length; i++) {
+  //     const item = works[i];
+
+  //     const list = document.createElement('div');
+  //     list.classList.add('list-item');
+
+  //     let listInner = '';
+  //     listInner += `<span class="num">${i}</span>`;
+  //     listInner += `<div class="image-wrap">`;
+  //     listInner += `  <img src="${item.image}" alt="" />`;
+  //     listInner += `</div>`;
+  //     listInner += `<div class="text-wrap">`;
+  //     listInner += `  <strong class="title">${item.name}</strong>`;
+  //     listInner += `</div>`;
+
+  //     list.innerHTML = listInner;
+
+  //     $listWrap.appendChild(list);
+  //     item.listNode = list;
+  //   }
+
+  //   $meshArea = works[0].listNode.querySelector('img');
+  // };
 
   const setModels = function () {
     let dGeometry, dMaterial, dMesh;
     let meshSize, meshHeight, meshWidth;
 
     // default geometry, material
-    dGeometry = new THREE.PlaneGeometry(imageRatio.width, imageRatio.height, 30, 30);
+    dGeometry = new THREE.PlaneGeometry(imageRatio.width, imageRatio.height, 50, 50);
     dMaterial = new THREE.ShaderMaterial({
       side: THREE.DoubleSide,
       transparent: true,
@@ -190,7 +224,9 @@ const App = function () {
         u_hoverScale: { type: 'f', value: 1 },
         u_hoverXGap: { type: 'f', value: 0 },
         u_uvRate: { type: 'v2', value: new THREE.Vector2(1, 1) },
-        u_opacity: { type: 'f', value: 0 },
+
+        // u_scroll: { type: 'f', value: 0 },
+        // u_resolution: { type: 'v2', value: new THREE.Vector2(ww, wh) },
       },
       vertexShader: vertexShader,
       fragmentShader: fragmentShader,
@@ -203,9 +239,6 @@ const App = function () {
       material.uniforms.u_texture.value = texture;
 
       const mesh = new THREE.Mesh(dGeometry, material);
-      mesh.index = i;
-
-      console.log(mesh);
 
       scene.add(mesh);
       works[i].mesh = mesh;
@@ -238,7 +271,10 @@ const App = function () {
 
       item.position.x = (meshWidth + marginValue.x) * meshScale * (i % row);
       item.position.y = -(meshHeight + meshHeight) * meshScale * Math.floor(i / row);
-      item.c_savePosition = item.position.clone();
+      // if (i === 1) {
+      //   item.position.y = -(meshHeight + meshHeight) * meshScale * Math.floor(i / row) - (scrollY * -0.3 - 15) / wh;
+      // }
+      item.savePosition = item.position.clone();
 
       item.scale.set(meshScale, meshScale, meshScale);
     }
@@ -247,129 +283,111 @@ const App = function () {
   const setEvent = function () {
     window.addEventListener('scroll', onScroll);
     window.addEventListener('mousemove', onMouseMove);
-
-    $listNodes.forEach(function (item, index) {
-      item.index = index;
-      item.addEventListener('mousemove', function (e) {
-        onMouseEnterList(e, index);
-      });
-    });
+    // $listNodes.forEach(function (node, index) {
+    //   node.index = index;
+    //   node.addEventListener('mouseenter', onMouseEnterList);
+    //   node.addEventListener('mouseleave', onMouseLeaveList);
+    // });
   };
 
-  const onMouseEnterList = function (e, index) {
-    const plane = meshes[index];
-    const planeHoverUniformValue = plane.material.uniforms.u_hover.value;
-    const planeHoverScaleUniform = plane.material.uniforms.u_hoverScale;
-    const planeHoverXgapUniform = plane.material.uniforms.u_hoverXGap;
-    const planePogressUniform = plane.material.uniforms.u_progress;
-    const planeOpacityUniform = plane.material.uniforms.u_opacity;
-
-    pointer.x = (e.clientX / ww) * 2 - 1;
-    pointer.y = -(e.clientY / wh) * 2 + 1;
-
-    // console.log('1', getWorldPositionFromScreenPosition(pointer.x, pointer.y));
-
-    if (currentHoverMesh !== plane) {
-      currentHoverMesh = plane;
-      hoveredMeshes.push(plane);
-
-      planeOpacityUniform.value = 1;
-    }
-
-    // console.log(plane.material.uv, plane.material.point);
-
-    // hover x move
-    const positionXGap = plane.position.x - pointer.x;
-    plane.userData.hoverXgapTween && plane.userData.hoverXgapTween.kill();
-    plane.userData.hoverXgapTween = gsap.to(planeHoverXgapUniform, 0.2, { value: positionXGap, ease: 'cubic.out' });
-
-    // // hover wave
-    // plane.userData.hoverTween && plane.userData.hoverTween.kill();
-    // plane.userData.hoverTween = gsap.to(planeHoverUniformValue, 0.75, { x: intersected[0].uv.x, y: intersected[0].uv.y, z: 1, ease: 'cubic.out' });
-
-    // hoverScale
-    plane.userData.hoverScaleTween && plane.userData.hoverScaleTween.kill();
-    plane.userData.hoverScaleTween = gsap.to(planeHoverScaleUniform, 0.5, { value: hoverScale, ease: 'cubic.out' });
-
-    // hover texture animation
-    plane.userData.hoverProgressTween && plane.userData.hoverProgressTween.kill();
-    plane.userData.hoverProgressTween = gsap.to(planePogressUniform, 2, { value: 1, ease: 'cubic.out' });
-  };
+  // Mouse
+  // const onMouseEnterList = function (e) {
+  //   currentHoverIndex = e.target.index;
+  // };
+  // const onMouseLeaveList = function (e) {
+  //   currentHoverIndex = null;
+  // };
 
   const onMouseMove = function (e) {
-    // pointer.x = (e.clientX / ww) * 2 - 1;
-    // pointer.y = -(e.clientY / wh) * 2 + 1;
+    pointer.x = (e.clientX / ww) * 2 - 1;
+    pointer.y = -(e.clientY / wh) * 2 + 1;
 
     raycaster.setFromCamera(pointer, camera);
 
     const intersected = raycaster.intersectObjects(meshes);
     if (intersected[0]) {
-      console.log('2', intersected[0].uv);
-      // const plane = intersected[0].object;
-      // const planeHoverUniformValue = plane.material.uniforms.u_hover.value;
-      // const planeHoverScaleUniform = plane.material.uniforms.u_hoverScale;
-      // const planeHoverXgapUniform = plane.material.uniforms.u_hoverXGap;
-      // const planePogressUniform = plane.material.uniforms.u_progress;
-      // const planeOpacityUniform = plane.material.uniforms.u_opacity;
-      // // console.log(plane);
-      // if (currentHoverMesh !== plane) {
-      //   currentHoverMesh = plane;
-      //   hoveredMeshes.push(plane);
-      //   planeOpacityUniform.value = 1;
+      const plane = intersected[0].object;
+      const planeHoverUniformValue = plane.material.uniforms.u_hover.value;
+      const planeHoverScaleUniform = plane.material.uniforms.u_hoverScale;
+      const planeHoverXgapUniform = plane.material.uniforms.u_hoverXGap;
+      const planePogressUniform = plane.material.uniforms.u_progress;
+
+      // console.log(plane);
+
+      if (currentHoverMesh !== plane) {
+        currentHoverMesh = plane;
+        hoveredMeshes.push(plane);
+      }
+
+      // ----------- 이건 뭘까..
+      // if (!planeHoverUniformValue.z) {
+      //   planeHoverUniformValue.x = intersected[0].uv.x;
+      //   planeHoverUniformValue.y = intersected[0].uv.y;
       // }
-      // // hover x move
-      // const positionXGap = plane.position.x - intersected[0].point.x;
-      // plane.userData.hoverXgapTween && plane.userData.hoverXgapTween.kill();
-      // plane.userData.hoverXgapTween = gsap.to(planeHoverXgapUniform, 0.2, { value: positionXGap, ease: 'cubic.out' });
-      // // hover wave
-      // plane.userData.hoverTween && plane.userData.hoverTween.kill();
-      // plane.userData.hoverTween = gsap.to(planeHoverUniformValue, 0.75, { x: intersected[0].uv.x, y: intersected[0].uv.y, z: 1, ease: 'cubic.out' });
-      // // hoverScale
+      /// ----------
+
+      // hover x move
+      const positionXGap = plane.position.x - intersected[0].point.x;
+      // hover x move -- 1. mesh 움직이기 -- / 6 정도가 적당
+      // plane.position.x = plane.savePosition.x + positionXGap;
+      // hover x move -- 2. vertex 로 하기
+      // planeHoverXgapUniform.value = positionXGap;
+      plane.userData.hoverXgapTween && plane.userData.hoverXgapTween.kill();
+      plane.userData.hoverXgapTween = gsap.to(planeHoverXgapUniform, 0.35, { value: positionXGap, ease: 'cubic.out' });
+
+      // hover wave
+      plane.userData.hoverTween && plane.userData.hoverTween.kill();
+      plane.userData.hoverTween = gsap.to(planeHoverUniformValue, 0.75, { x: intersected[0].uv.x, y: intersected[0].uv.y, z: 1, ease: 'cubic.out' });
+
+      // hoverScale -- 1. plane 의 scale 을 키우는 방법
       // plane.userData.hoverScaleTween && plane.userData.hoverScaleTween.kill();
-      // plane.userData.hoverScaleTween = gsap.to(planeHoverScaleUniform, 0.5, { value: hoverScale, ease: 'cubic.out' });
-      // // hover texture animation
-      // plane.userData.hoverProgressTween && plane.userData.hoverProgressTween.kill();
-      // plane.userData.hoverProgressTween = gsap.to(planePogressUniform, 2, { value: 1, ease: 'cubic.out' });
+      // plane.userData.hoverScaleTween = gsap.to(plane.scale, 0.5, { x: hoverScale * meshScale, y: hoverScale * meshScale, z: hoverScale * meshScale, ease: 'cubic.out' });
+      // hoverScale -- 2. vertex shader 로 보내는 방법
+      plane.userData.hoverScaleTween && plane.userData.hoverScaleTween.kill();
+      plane.userData.hoverScaleTween = gsap.to(planeHoverScaleUniform, 0.5, { value: hoverScale, ease: 'cubic.out' });
+
+      // hover texture animation
+      plane.userData.hoverProgressTween && plane.userData.hoverProgressTween.kill();
+      plane.userData.hoverProgressTween = gsap.to(planePogressUniform, 2, { value: 1, ease: 'cubic.out' });
     } else {
       currentHoverMesh = null;
     }
 
-    // if (hoveredMeshes.length > 0) {
-    //   for (let i = 0; i < hoveredMeshes.length; i++) {
-    //     const plane = hoveredMeshes[i];
-    //     const planeHoverUniformValue = plane.material.uniforms.u_hover.value;
-    //     const planeHoverScaleUniform = plane.material.uniforms.u_hoverScale;
-    //     const planeHoverXgapUniform = plane.material.uniforms.u_hoverXGap;
-    //     const planePogressUniform = plane.material.uniforms.u_progress;
-    //     const planeOpacityUniform = plane.material.uniforms.u_opacity;
+    if (hoveredMeshes.length > 0) {
+      for (let i = 0; i < hoveredMeshes.length; i++) {
+        const plane = hoveredMeshes[i];
+        const planeHoverUniformValue = plane.material.uniforms.u_hover.value;
+        const planeHoverScaleUniform = plane.material.uniforms.u_hoverScale;
+        const planeHoverXgapUniform = plane.material.uniforms.u_hoverXGap;
+        const planePogressUniform = plane.material.uniforms.u_progress;
 
-    //     if (plane == currentHoverMesh) return;
+        if (plane == currentHoverMesh) return;
 
-    //     // hover x move
-    //     plane.userData.hoverXgapTween && plane.userData.hoverXgapTween.kill();
-    //     plane.userData.hoverXgapTween = gsap.to(planeHoverXgapUniform, 0.35, { value: 0, ease: 'cubic.out' });
+        // hover x move
+        // plane.position.x = plane.savePosition.x;
+        // planeHoverXgapUniform.value = 0;
+        plane.userData.hoverXgapTween && plane.userData.hoverXgapTween.kill();
+        plane.userData.hoverXgapTween = gsap.to(planeHoverXgapUniform, 0.35, { value: 0, ease: 'cubic.out' });
 
-    //     // hover wave
-    //     plane.userData.hoverTween && plane.userData.hoverTween.kill();
-    //     plane.userData.hoverTween = gsap.to(planeHoverUniformValue, 0.35, { x: 0, y: 0, z: 0, ease: 'cubic.out' });
+        // hover wave
+        plane.userData.hoverTween && plane.userData.hoverTween.kill();
+        plane.userData.hoverTween = gsap.to(planeHoverUniformValue, 0.35, { x: 0, y: 0, z: 0, ease: 'cubic.out' });
 
-    //     // hoverScale
-    //     plane.userData.hoverScaleTween && plane.userData.hoverScaleTween.kill();
-    //     plane.userData.hoverScaleTween = gsap.to(planeHoverScaleUniform, 0.5, { value: 1, ease: 'cubic.out' });
+        // hoverScale -- plane 의 scale 을 키우는 방법
+        // plane.userData.hoverScaleTween.kill();
+        // plane.userData.hoverScaleTween = gsap.to(plane.scale, 0.5, { x: 1 * meshScale, y: 1 * meshScale, z: 1 * meshScale, ease: 'cubic.out' });
 
-    //     // hover texture animation
-    //     plane.userData.hoverProgressTween && plane.userData.hoverProgressTween.kill();
-    //     plane.userData.hoverProgressTween = gsap.to(planePogressUniform, 1, {
-    //       value: 0,
-    //       ease: 'cubic.out',
-    //       onComplete: function () {
-    //         planeOpacityUniform.value = 0;
-    //       },
-    //     });
+        // hoverScale -- vertex shader 로 보내는 방법
+        plane.userData.hoverScaleTween && plane.userData.hoverScaleTween.kill();
+        plane.userData.hoverScaleTween = gsap.to(planeHoverScaleUniform, 0.5, { value: 1, ease: 'cubic.out' });
 
-    //     hoveredMeshes.shift();
-    //   }
-    // }
+        // hover texture animation
+        plane.userData.hoverProgressTween && plane.userData.hoverProgressTween.kill();
+        plane.userData.hoverProgressTween = gsap.to(planePogressUniform, 1, { value: 0, ease: 'cubic.out' });
+
+        hoveredMeshes.shift();
+      }
+    }
   };
 
   // Scroll -----------------
@@ -378,7 +396,22 @@ const App = function () {
     let scrollRatio = (scrollY - initScrollTop) / wh;
 
     for (let i = 0; i < works.length; i++) {
-      works[i].mesh.position.y = works[i].mesh.c_savePosition.y + scrollRatio;
+      // if (i === 1) {
+      //   let scrollRatio = ((scrollY * -0.3 - 15) / wh - initScrollTop) / wh;
+      //   works[i].mesh.position.y = works[i].mesh.savePosition.y + scrollRatio;
+      // } else {
+      //   let scrollRatio = (scrollY - initScrollTop) / wh;
+      //   works[i].mesh.position.y = works[i].mesh.savePosition.y + scrollRatio;
+      // }\
+      // works[i].material.uniforms.u_scroll.value = scrollRatio;
+
+      // let translateValue = (i % 2) * 0.1 + 0.1;
+      // if (i < 3) translateValue *= 5;
+      // console.log(translateValue);
+
+      works[i].mesh.position.y = works[i].mesh.savePosition.y + scrollRatio;
+      // $listNodes[i].style.transform = `translate3d(0px, ${-scrollY * translateValue}px, 0px)`;
+      // works[i].mesh.position.y = works[i].mesh.savePosition.y + scrollRatio + scrollRatio * translateValue;
     }
   };
 
@@ -406,6 +439,13 @@ const App = function () {
 
   // Render -------------------
   const render = function (time, deltaTime) {
+    // console.log(works[7].material.uniforms.u_hoverXGap.value);
+    // console.log(works[7].material.uniforms.u_uvRate.value);
+    // console.log(works[7].material.uniforms.u_resolution.value);
+    // console.log(works[7].material.uniforms.u_hoverScale.value);
+    // for (let i = 0; i < works.length; i++) {
+    //   works[i].material.uniforms.u_time.value += deltaTime * 0.0001;
+    // }
     works[0].material.uniforms.u_time.value += deltaTime * 0.0001;
 
     renderer.render(scene, camera);
@@ -413,18 +453,5 @@ const App = function () {
 
   window.addEventListener('load', init);
   window.addEventListener('resize', resize);
-
-  ///////////////
-  const getWorldPositionFromScreenPosition = (function () {
-    const vector = new THREE.Vector3();
-    const position = new THREE.Vector3();
-    return (x, y) => {
-      vector.set((x / ww) * 2 - 1, -(y / wh) * 2 + 1, 0.5);
-      vector.unproject(camera);
-      vector.sub(camera.position).normalize();
-      position.copy(camera.position).add(vector.multiplyScalar(-camera.position.z / vector.z));
-      return new THREE.Vector3().copy(position);
-    };
-  })();
 };
 App();
