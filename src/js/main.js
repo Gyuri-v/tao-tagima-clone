@@ -246,28 +246,20 @@ const App = function () {
 
   const setEvent = function () {
     window.addEventListener('scroll', onScroll);
-    window.addEventListener('mousemove', onMouseMove);
+    // window.addEventListener('mousemove', onMouseMove);
 
     $listNodes.forEach(function (item, index) {
-      item.index = index;
-      item.addEventListener('mousemove', function (e) {
-        onMouseEnterList(e, index);
-      });
+      item.addEventListener('mouseenter', (e) => onMouseEnterList(e, index));
+      item.addEventListener('mousemove', (e) => onMouseMoveList(e, index));
+      item.addEventListener('mouseleave', (e) => onMouseLeaveList(e, index));
     });
   };
 
   const onMouseEnterList = function (e, index) {
     const plane = meshes[index];
-    const planeHoverUniformValue = plane.material.uniforms.u_hover.value;
     const planeHoverScaleUniform = plane.material.uniforms.u_hoverScale;
-    const planeHoverXgapUniform = plane.material.uniforms.u_hoverXGap;
     const planePogressUniform = plane.material.uniforms.u_progress;
     const planeOpacityUniform = plane.material.uniforms.u_opacity;
-
-    pointer.x = (e.clientX / ww) * 2 - 1;
-    pointer.y = -(e.clientY / wh) * 2 + 1;
-
-    // console.log('1', getWorldPositionFromScreenPosition(pointer.x, pointer.y));
 
     if (currentHoverMesh !== plane) {
       currentHoverMesh = plane;
@@ -275,17 +267,6 @@ const App = function () {
 
       planeOpacityUniform.value = 1;
     }
-
-    // console.log(plane.material.uv, plane.material.point);
-
-    // hover x move
-    const positionXGap = plane.position.x - pointer.x;
-    plane.userData.hoverXgapTween && plane.userData.hoverXgapTween.kill();
-    plane.userData.hoverXgapTween = gsap.to(planeHoverXgapUniform, 0.2, { value: positionXGap, ease: 'cubic.out' });
-
-    // // hover wave
-    // plane.userData.hoverTween && plane.userData.hoverTween.kill();
-    // plane.userData.hoverTween = gsap.to(planeHoverUniformValue, 0.75, { x: intersected[0].uv.x, y: intersected[0].uv.y, z: 1, ease: 'cubic.out' });
 
     // hoverScale
     plane.userData.hoverScaleTween && plane.userData.hoverScaleTween.kill();
@@ -296,80 +277,58 @@ const App = function () {
     plane.userData.hoverProgressTween = gsap.to(planePogressUniform, 2, { value: 1, ease: 'cubic.out' });
   };
 
-  const onMouseMove = function (e) {
-    // pointer.x = (e.clientX / ww) * 2 - 1;
-    // pointer.y = -(e.clientY / wh) * 2 + 1;
+  const onMouseMoveList = function (e, index) {
+    const plane = meshes[index];
+    const planeHoverUniformValue = plane.material.uniforms.u_hover.value;
+    const planeHoverXgapUniform = plane.material.uniforms.u_hoverXGap;
 
+    pointer.x = (e.clientX / ww) * 2 - 1;
+    pointer.y = -(e.clientY / wh) * 2 + 1;
+
+    // hover wave
     raycaster.setFromCamera(pointer, camera);
+    const intersected = raycaster.intersectObjects([plane]);
 
-    const intersected = raycaster.intersectObjects(meshes);
     if (intersected[0]) {
-      console.log('2', intersected[0].uv);
-      // const plane = intersected[0].object;
-      // const planeHoverUniformValue = plane.material.uniforms.u_hover.value;
-      // const planeHoverScaleUniform = plane.material.uniforms.u_hoverScale;
-      // const planeHoverXgapUniform = plane.material.uniforms.u_hoverXGap;
-      // const planePogressUniform = plane.material.uniforms.u_progress;
-      // const planeOpacityUniform = plane.material.uniforms.u_opacity;
-      // // console.log(plane);
-      // if (currentHoverMesh !== plane) {
-      //   currentHoverMesh = plane;
-      //   hoveredMeshes.push(plane);
-      //   planeOpacityUniform.value = 1;
-      // }
-      // // hover x move
-      // const positionXGap = plane.position.x - intersected[0].point.x;
-      // plane.userData.hoverXgapTween && plane.userData.hoverXgapTween.kill();
-      // plane.userData.hoverXgapTween = gsap.to(planeHoverXgapUniform, 0.2, { value: positionXGap, ease: 'cubic.out' });
-      // // hover wave
-      // plane.userData.hoverTween && plane.userData.hoverTween.kill();
-      // plane.userData.hoverTween = gsap.to(planeHoverUniformValue, 0.75, { x: intersected[0].uv.x, y: intersected[0].uv.y, z: 1, ease: 'cubic.out' });
-      // // hoverScale
-      // plane.userData.hoverScaleTween && plane.userData.hoverScaleTween.kill();
-      // plane.userData.hoverScaleTween = gsap.to(planeHoverScaleUniform, 0.5, { value: hoverScale, ease: 'cubic.out' });
-      // // hover texture animation
-      // plane.userData.hoverProgressTween && plane.userData.hoverProgressTween.kill();
-      // plane.userData.hoverProgressTween = gsap.to(planePogressUniform, 2, { value: 1, ease: 'cubic.out' });
-    } else {
-      currentHoverMesh = null;
+      plane.userData.hoverTween && plane.userData.hoverTween.kill();
+      plane.userData.hoverTween = gsap.to(planeHoverUniformValue, 0.75, { x: intersected[0].uv.x, y: intersected[0].uv.y, z: 1, ease: 'cubic.out' });
+
+      // hover x move
+      const positionXGap = plane.position.x - intersected[0].point.x;
+      plane.userData.hoverXgapTween && plane.userData.hoverXgapTween.kill();
+      plane.userData.hoverXgapTween = gsap.to(planeHoverXgapUniform, 0.2, { value: positionXGap, ease: 'cubic.out' });
     }
+  };
 
-    // if (hoveredMeshes.length > 0) {
-    //   for (let i = 0; i < hoveredMeshes.length; i++) {
-    //     const plane = hoveredMeshes[i];
-    //     const planeHoverUniformValue = plane.material.uniforms.u_hover.value;
-    //     const planeHoverScaleUniform = plane.material.uniforms.u_hoverScale;
-    //     const planeHoverXgapUniform = plane.material.uniforms.u_hoverXGap;
-    //     const planePogressUniform = plane.material.uniforms.u_progress;
-    //     const planeOpacityUniform = plane.material.uniforms.u_opacity;
+  const onMouseLeaveList = function (e, index) {
+    const plane = meshes[index];
+    const planeHoverUniformValue = plane.material.uniforms.u_hover.value;
+    const planeHoverScaleUniform = plane.material.uniforms.u_hoverScale;
+    const planeHoverXgapUniform = plane.material.uniforms.u_hoverXGap;
+    const planePogressUniform = plane.material.uniforms.u_progress;
+    const planeOpacityUniform = plane.material.uniforms.u_opacity;
 
-    //     if (plane == currentHoverMesh) return;
+    // hover x move
+    plane.userData.hoverXgapTween && plane.userData.hoverXgapTween.kill();
+    plane.userData.hoverXgapTween = gsap.to(planeHoverXgapUniform, 0.35, { value: 0, ease: 'cubic.out' });
 
-    //     // hover x move
-    //     plane.userData.hoverXgapTween && plane.userData.hoverXgapTween.kill();
-    //     plane.userData.hoverXgapTween = gsap.to(planeHoverXgapUniform, 0.35, { value: 0, ease: 'cubic.out' });
+    // hover wave
+    plane.userData.hoverTween && plane.userData.hoverTween.kill();
+    plane.userData.hoverTween = gsap.to(planeHoverUniformValue, 0.35, { x: 0, y: 0, z: 0, ease: 'cubic.out' });
 
-    //     // hover wave
-    //     plane.userData.hoverTween && plane.userData.hoverTween.kill();
-    //     plane.userData.hoverTween = gsap.to(planeHoverUniformValue, 0.35, { x: 0, y: 0, z: 0, ease: 'cubic.out' });
+    // hoverScale
+    plane.userData.hoverScaleTween && plane.userData.hoverScaleTween.kill();
+    plane.userData.hoverScaleTween = gsap.to(planeHoverScaleUniform, 0.5, { value: 1, ease: 'cubic.out' });
 
-    //     // hoverScale
-    //     plane.userData.hoverScaleTween && plane.userData.hoverScaleTween.kill();
-    //     plane.userData.hoverScaleTween = gsap.to(planeHoverScaleUniform, 0.5, { value: 1, ease: 'cubic.out' });
-
-    //     // hover texture animation
-    //     plane.userData.hoverProgressTween && plane.userData.hoverProgressTween.kill();
-    //     plane.userData.hoverProgressTween = gsap.to(planePogressUniform, 1, {
-    //       value: 0,
-    //       ease: 'cubic.out',
-    //       onComplete: function () {
-    //         planeOpacityUniform.value = 0;
-    //       },
-    //     });
-
-    //     hoveredMeshes.shift();
-    //   }
-    // }
+    // hover texture animation
+    plane.userData.hoverProgressTween && plane.userData.hoverProgressTween.kill();
+    plane.userData.hoverProgressTween = gsap.to(planePogressUniform, 1, {
+      value: 0,
+      ease: 'cubic.out',
+      onComplete: function () {
+        planeOpacityUniform.value = 0;
+      },
+    });
   };
 
   // Scroll -----------------
