@@ -21,8 +21,7 @@ canvas {
 }
 
 .content_inner {
-  width: 100%;
-  max-width: calc(325px * 3 + 120px);
+  width: calc(325px * 3 + 120px);
   margin: 0 auto;
 }
 
@@ -58,7 +57,7 @@ canvas {
     }
 
     .image-wrap {
-      opacity: 0.5;
+      // opacity: 0.5;
       img {
         display: block;
         max-width: 100%;

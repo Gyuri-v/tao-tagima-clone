@@ -14,6 +14,8 @@ const App = function () {
   const $listNodes = $container.querySelectorAll('.list-item');
   const $meshArea = $container.querySelector('.list-item_1 img');
 
+  let meshAreaRect = $meshArea.getBoundingClientRect();
+
   // Values
   let ww, wh;
   let renderer, scene, camera, light, textureLoader, raycaster;
@@ -25,7 +27,7 @@ const App = function () {
 
   let currentHoverMesh = null;
   let currentHoverIndex = null;
-  const hoveredMeshes = [];
+  const hoveredefaultMeshes = [];
   let hoverScale = 1.3;
   let row = 3;
 
@@ -157,6 +159,24 @@ const App = function () {
     renderer.setSize(ww, wh);
     renderer.setPixelRatio(Math.min(2, window.devicePixelRatio));
 
+    meshAreaRect = $meshArea.getBoundingClientRect();
+    changeSizingViewOffset(meshAreaRect, ww, wh);
+
+    listItemMarginToWorldGap = { x: listItemMarginRight / meshAreaRect.height, y: meshHeight };
+
+    meshScale = meshAreaRect.height / wh;
+    for (let i = 0; i < meshes.length; i++) {
+      const item = meshes[i];
+
+      item.position.x = (meshWidth + listItemMarginToWorldGap.x) * meshScale * (i % row);
+      item.position.y = -(meshHeight + meshHeight) * meshScale * Math.floor(i / row);
+      item.c_savePosition = item.position.clone();
+
+      item.scale.set(meshScale, meshScale, meshScale);
+    }
+
+    setListStyle();
+
     initScrollTop = scrollY;
   };
 
@@ -168,16 +188,17 @@ const App = function () {
       $listNodes[i].style.transform = `translate3d(0, ${valueY}px, 0)`;
       meshes[i].position.y = meshes[i].c_savePosition.y - valueY / wh;
       meshes[i].c_savePosition.y = meshes[i].position.y;
+      // meshes[i].defaultY = valueY;
     }
   };
 
+  let meshSize, meshHeight, meshWidth;
+  let defalutGeometry, defalutMaterial, defaultMesh;
+  let listItemMarginRight, listItemMarginToWorldGap;
   const setModels = function () {
-    let dGeometry, dMaterial, dMesh;
-    let meshSize, meshHeight, meshWidth;
-
     // default geometry, material
-    dGeometry = new THREE.PlaneGeometry(imageRatio.width, imageRatio.height, 30, 30);
-    dMaterial = new THREE.ShaderMaterial({
+    defalutGeometry = new THREE.PlaneGeometry(imageRatio.width, imageRatio.height, 30, 30);
+    defalutMaterial = new THREE.ShaderMaterial({
       side: THREE.DoubleSide,
       transparent: true,
       uniforms: {
@@ -198,45 +219,39 @@ const App = function () {
 
     // plane meshes 만들기
     for (let i = 0; i < works.length; i++) {
-      const material = dMaterial.clone();
+      const material = defalutMaterial.clone();
       const texture = textureLoader.load(works[i].image);
       material.uniforms.u_texture.value = texture;
 
-      const mesh = new THREE.Mesh(dGeometry, material);
+      const mesh = new THREE.Mesh(defalutGeometry, material);
       mesh.index = i;
 
-      console.log(mesh);
-
-      scene.add(mesh);
-      works[i].mesh = mesh;
       works[i].material = material;
+      scene.add(mesh);
       meshes.push(mesh);
     }
-    dMesh = works[0].mesh;
+    defaultMesh = meshes[0];
 
     // default mesh 사이즈 구하기
-    meshSize = new THREE.Box3().setFromObject(dMesh);
+    meshSize = new THREE.Box3().setFromObject(defaultMesh);
     meshHeight = meshSize.max.y - meshSize.min.y;
     meshWidth = meshSize.max.x - meshSize.min.x;
 
     // plane meshes scale 값 정하기
-    const targetRect = $meshArea.getBoundingClientRect();
-    meshScale = targetRect.height / wh;
+    meshScale = meshAreaRect.height / wh;
 
-    const marginValue = {
-      x: 60 / 183, // meshHeight = 183px = three 1 이니까 60/183으로 일단 비율  ----------------- 계산 구하기!!!!!!!!!!!!!!
-      y: meshHeight,
-    };
+    listItemMarginRight = window.getComputedStyle($listNodes[0]).marginRight.split('px')[0];
+    listItemMarginToWorldGap = { x: listItemMarginRight / meshAreaRect.height, y: meshHeight };
 
     // camera fov, viewOffset 변경
-    changeCameraFov(camera, dMesh, meshSize);
-    changeSizingViewOffset(targetRect, ww, wh);
+    changeCameraFov(camera, defaultMesh, meshSize);
+    changeSizingViewOffset(meshAreaRect, ww, wh);
 
     // plane meshes 위치, 스케일 정하기
-    for (let i = 0; i < works.length; i++) {
-      const item = works[i].mesh;
+    for (let i = 0; i < meshes.length; i++) {
+      const item = meshes[i];
 
-      item.position.x = (meshWidth + marginValue.x) * meshScale * (i % row);
+      item.position.x = (meshWidth + listItemMarginToWorldGap.x) * meshScale * (i % row);
       item.position.y = -(meshHeight + meshHeight) * meshScale * Math.floor(i / row);
       item.c_savePosition = item.position.clone();
 
@@ -246,24 +261,25 @@ const App = function () {
 
   const setEvent = function () {
     window.addEventListener('scroll', onScroll);
-    // window.addEventListener('mousemove', onMouseMove);
 
     $listNodes.forEach(function (item, index) {
-      item.addEventListener('mouseenter', (e) => onMouseEnterList(e, index));
-      item.addEventListener('mousemove', (e) => onMouseMoveList(e, index));
-      item.addEventListener('mouseleave', (e) => onMouseLeaveList(e, index));
+      item.addEventListener('mouseenter', (e) => onMouseEnterList(e, index, item));
     });
   };
 
-  const onMouseEnterList = function (e, index) {
+  // Event - ListItem 들에 대한
+  const onMouseEnterList = function (e, index, item) {
     const plane = meshes[index];
     const planeHoverScaleUniform = plane.material.uniforms.u_hoverScale;
     const planePogressUniform = plane.material.uniforms.u_progress;
     const planeOpacityUniform = plane.material.uniforms.u_opacity;
 
+    item.addEventListener('mousemove', (e) => onMouseMoveList(e, index, item));
+    item.addEventListener('mouseleave', (e) => onMouseLeaveList(e, index, item));
+
     if (currentHoverMesh !== plane) {
       currentHoverMesh = plane;
-      hoveredMeshes.push(plane);
+      hoveredefaultMeshes.push(plane);
 
       planeOpacityUniform.value = 1;
     }
@@ -300,7 +316,7 @@ const App = function () {
     }
   };
 
-  const onMouseLeaveList = function (e, index) {
+  const onMouseLeaveList = function (e, index, item) {
     const plane = meshes[index];
     const planeHoverUniformValue = plane.material.uniforms.u_hover.value;
     const planeHoverScaleUniform = plane.material.uniforms.u_hoverScale;
@@ -329,15 +345,17 @@ const App = function () {
         planeOpacityUniform.value = 0;
       },
     });
+
+    item.removeEventListener('mousemove', (e) => onMouseMoveList(e, index));
+    item.removeEventListener('mouseleave', (e) => onMouseLeaveList(e, index));
   };
 
   // Scroll -----------------
   const onScroll = function (e) {
-    // const scrollRatio = scrollY / wh / meshScale;
     let scrollRatio = (scrollY - initScrollTop) / wh;
 
-    for (let i = 0; i < works.length; i++) {
-      works[i].mesh.position.y = works[i].mesh.c_savePosition.y + scrollRatio;
+    for (let i = 0; i < meshes.length; i++) {
+      meshes[i].position.y = meshes[i].c_savePosition.y + scrollRatio;
     }
   };
 
@@ -351,13 +369,13 @@ const App = function () {
     camera.updateProjectionMatrix();
   };
 
-  const changeSizingViewOffset = function (targetRect, ww, wh) {
+  const changeSizingViewOffset = function (meshAreaRect, ww, wh) {
     camera.setViewOffset(
       //
       ww,
       wh,
-      ww / 2 - targetRect.width / 2 - (targetRect.left - 0),
-      wh / 2 - targetRect.height / 2 - (targetRect.top - 0),
+      ww / 2 - meshAreaRect.width / 2 - (meshAreaRect.left - 0),
+      wh / 2 - meshAreaRect.height / 2 - (meshAreaRect.top - 0),
       ww,
       wh,
     );
@@ -372,18 +390,5 @@ const App = function () {
 
   window.addEventListener('load', init);
   window.addEventListener('resize', resize);
-
-  ///////////////
-  const getWorldPositionFromScreenPosition = (function () {
-    const vector = new THREE.Vector3();
-    const position = new THREE.Vector3();
-    return (x, y) => {
-      vector.set((x / ww) * 2 - 1, -(y / wh) * 2 + 1, 0.5);
-      vector.unproject(camera);
-      vector.sub(camera.position).normalize();
-      position.copy(camera.position).add(vector.multiplyScalar(-camera.position.z / vector.z));
-      return new THREE.Vector3().copy(position);
-    };
-  })();
 };
 App();

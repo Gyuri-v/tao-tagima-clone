@@ -67,8 +67,7 @@ canvas {
 }
 
 .content_inner {
-  width: 100%;
-  max-width: 1095px;
+  width: 1095px;
   margin: 0 auto;
 }
 
@@ -98,9 +97,6 @@ canvas {
   font-weight: 400;
   color: #000;
   transition: transform 0.3s;
-}
-.content-about .list-item .image-wrap {
-  opacity: 0.5;
 }
 .content-about .list-item .image-wrap img {
   display: block;
