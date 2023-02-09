@@ -27,6 +27,7 @@ const App = function () {
   let currentHoverIndex = null;
   const hoveredMeshes = [];
   let hoverScale = 1.25;
+  let row = 3;
 
   const parameters = {
     fitMeshScale: 0,
@@ -134,12 +135,12 @@ const App = function () {
     imageRatio.width = 1.777; ////////// ------------ 계산식 만들기
 
     // Setting
-    setListStyle();
     setModels();
 
     // Loading
     THREE.DefaultLoadingManager.onProgress = function (url, itemsLoaded, itemsTotal) {
       if (itemsLoaded === itemsTotal) {
+        setListStyle();
         setEvent();
         gsap.ticker.add(render);
       }
@@ -161,20 +162,24 @@ const App = function () {
 
   // Setting -------------------
   const setListStyle = function () {
-    // for (let i = 0; i < $listNodes.length; i++) {
-    //   const item = $listNodes[i];
-    //   console.log(item);
-    // }
+    for (let i = 0; i < $listNodes.length; i++) {
+      const valueY = i % row == 1 ? -40 : i % row == 2 ? -17 : 0;
+
+      $listNodes[i].style.transform = `translate3d(0, ${valueY}px, 0)`;
+      meshes[i].position.y = meshes[i].savePosition.y - valueY / wh;
+      meshes[i].savePosition.y = meshes[i].position.y;
+    }
     // console.log($listNodes[0]);
-    $listNodes[0].style.transform = `matrix(1, 0, 0, 1, 0, ${0})`;
-    $listNodes[1].style.transform = `matrix(1, 0, 0, 1, 0, ${scrollY * -0.3 - 15})`;
-    $listNodes[2].style.transform = `matrix(1, 0, 0, 1, 0, ${0})`;
-    $listNodes[3].style.transform = `matrix(1, 0, 0, 1, 0, ${0})`;
-    $listNodes[4].style.transform = `matrix(1, 0, 0, 1, 0, ${0})`;
-    $listNodes[5].style.transform = `matrix(1, 0, 0, 1, 0, ${0})`;
-    $listNodes[6].style.transform = `matrix(1, 0, 0, 1, 0, ${0})`;
-    $listNodes[7].style.transform = `matrix(1, 0, 0, 1, 0, ${0})`;
+    // $listNodes[0].style.transform = `matrix(1, 0, 0, 1, 0, ${0})`;
+    // $listNodes[1].style.transform = `matrix(1, 0, 0, 1, 0, ${scrollY * -0.3 - 15})`;
+    // $listNodes[2].style.transform = `matrix(1, 0, 0, 1, 0, ${0})`;
+    // $listNodes[3].style.transform = `matrix(1, 0, 0, 1, 0, ${0})`;
+    // $listNodes[4].style.transform = `matrix(1, 0, 0, 1, 0, ${0})`;
+    // $listNodes[5].style.transform = `matrix(1, 0, 0, 1, 0, ${0})`;
+    // $listNodes[6].style.transform = `matrix(1, 0, 0, 1, 0, ${0})`;
+    // $listNodes[7].style.transform = `matrix(1, 0, 0, 1, 0, ${0})`;
   };
+
   // const setList = function () {
   //   for (let i = 0; i < works.length; i++) {
   //     const item = works[i];
@@ -203,7 +208,6 @@ const App = function () {
   const setModels = function () {
     let dGeometry, dMaterial, dMesh;
     let meshSize, meshHeight, meshWidth;
-    let row = 3;
 
     // default geometry, material
     dGeometry = new THREE.PlaneGeometry(imageRatio.width, imageRatio.height, 50, 50);
@@ -211,11 +215,15 @@ const App = function () {
       side: THREE.DoubleSide,
       transparent: true,
       uniforms: {
+        u_accel: { type: 'v2', value: new THREE.Vector2(0.5, 2) },
+        u_resolution: { type: 'v2', value: new THREE.Vector2(ww, wh) },
+        u_progress: { type: 'f', value: 0 },
         u_texture: { type: 'f', value: null },
         u_time: { type: 'f', value: 0 },
         u_hover: { type: 'v3', value: new THREE.Vector3() },
         u_hoverScale: { type: 'f', value: 1 },
         u_hoverXGap: { type: 'f', value: 0 },
+        u_uvRate: { type: 'v2', value: new THREE.Vector2(1, 1) },
 
         // u_scroll: { type: 'f', value: 0 },
         // u_resolution: { type: 'v2', value: new THREE.Vector2(ww, wh) },
@@ -263,9 +271,9 @@ const App = function () {
 
       item.position.x = (meshWidth + marginValue.x) * meshScale * (i % row);
       item.position.y = -(meshHeight + meshHeight) * meshScale * Math.floor(i / row);
-      if (i === 1) {
-        item.position.y = -(meshHeight + meshHeight) * meshScale * Math.floor(i / row) - (scrollY * -0.3 - 15) / wh;
-      }
+      // if (i === 1) {
+      //   item.position.y = -(meshHeight + meshHeight) * meshScale * Math.floor(i / row) - (scrollY * -0.3 - 15) / wh;
+      // }
       item.savePosition = item.position.clone();
 
       item.scale.set(meshScale, meshScale, meshScale);
@@ -302,6 +310,9 @@ const App = function () {
       const planeHoverUniformValue = plane.material.uniforms.u_hover.value;
       const planeHoverScaleUniform = plane.material.uniforms.u_hoverScale;
       const planeHoverXgapUniform = plane.material.uniforms.u_hoverXGap;
+      const planePogressUniform = plane.material.uniforms.u_progress;
+
+      // console.log(plane);
 
       if (currentHoverMesh !== plane) {
         currentHoverMesh = plane;
@@ -317,9 +328,9 @@ const App = function () {
 
       // hover x move
       const positionXGap = plane.position.x - intersected[0].point.x;
-      // hover x move -- mesh 움직이기 -- / 6 정도가 적당
+      // hover x move -- 1. mesh 움직이기 -- / 6 정도가 적당
       // plane.position.x = plane.savePosition.x + positionXGap;
-      // hover x move -- vertex 로 하기
+      // hover x move -- 2. vertex 로 하기
       // planeHoverXgapUniform.value = positionXGap;
       plane.userData.hoverXgapTween && plane.userData.hoverXgapTween.kill();
       plane.userData.hoverXgapTween = gsap.to(planeHoverXgapUniform, 0.35, { value: positionXGap, ease: 'cubic.out' });
@@ -328,13 +339,16 @@ const App = function () {
       plane.userData.hoverTween && plane.userData.hoverTween.kill();
       plane.userData.hoverTween = gsap.to(planeHoverUniformValue, 0.75, { x: intersected[0].uv.x, y: intersected[0].uv.y, z: 1, ease: 'cubic.out' });
 
-      // hoverScale -- plane 의 scale 을 키우는 방법
+      // hoverScale -- 1. plane 의 scale 을 키우는 방법
       // plane.userData.hoverScaleTween && plane.userData.hoverScaleTween.kill();
       // plane.userData.hoverScaleTween = gsap.to(plane.scale, 0.5, { x: hoverScale * meshScale, y: hoverScale * meshScale, z: hoverScale * meshScale, ease: 'cubic.out' });
-
-      // hoverScale -- vertex shader 로 보내는 방법
+      // hoverScale -- 2. vertex shader 로 보내는 방법
       plane.userData.hoverScaleTween && plane.userData.hoverScaleTween.kill();
       plane.userData.hoverScaleTween = gsap.to(planeHoverScaleUniform, 0.5, { value: hoverScale, ease: 'cubic.out' });
+
+      // hover texture animation
+      plane.userData.hoverProgressTween && plane.userData.hoverProgressTween.kill();
+      plane.userData.hoverProgressTween = gsap.to(planePogressUniform, 2, { value: 1, ease: 'cubic.out' });
     } else {
       currentHoverMesh = null;
     }
@@ -345,6 +359,7 @@ const App = function () {
         const planeHoverUniformValue = plane.material.uniforms.u_hover.value;
         const planeHoverScaleUniform = plane.material.uniforms.u_hoverScale;
         const planeHoverXgapUniform = plane.material.uniforms.u_hoverXGap;
+        const planePogressUniform = plane.material.uniforms.u_progress;
 
         if (plane == currentHoverMesh) return;
 
@@ -366,6 +381,10 @@ const App = function () {
         plane.userData.hoverScaleTween && plane.userData.hoverScaleTween.kill();
         plane.userData.hoverScaleTween = gsap.to(planeHoverScaleUniform, 0.5, { value: 1, ease: 'cubic.out' });
 
+        // hover texture animation
+        plane.userData.hoverProgressTween && plane.userData.hoverProgressTween.kill();
+        plane.userData.hoverProgressTween = gsap.to(planePogressUniform, 1, { value: 0, ease: 'cubic.out' });
+
         hoveredMeshes.shift();
       }
     }
@@ -376,8 +395,6 @@ const App = function () {
     // const scrollRatio = scrollY / wh / meshScale;
     let scrollRatio = (scrollY - initScrollTop) / wh;
 
-    // setListStyle();
-
     for (let i = 0; i < works.length; i++) {
       // if (i === 1) {
       //   let scrollRatio = ((scrollY * -0.3 - 15) / wh - initScrollTop) / wh;
@@ -387,7 +404,14 @@ const App = function () {
       //   works[i].mesh.position.y = works[i].mesh.savePosition.y + scrollRatio;
       // }\
       // works[i].material.uniforms.u_scroll.value = scrollRatio;
+
+      // let translateValue = (i % 2) * 0.1 + 0.1;
+      // if (i < 3) translateValue *= 5;
+      // console.log(translateValue);
+
       works[i].mesh.position.y = works[i].mesh.savePosition.y + scrollRatio;
+      // $listNodes[i].style.transform = `translate3d(0px, ${-scrollY * translateValue}px, 0px)`;
+      // works[i].mesh.position.y = works[i].mesh.savePosition.y + scrollRatio + scrollRatio * translateValue;
     }
   };
 
@@ -415,6 +439,10 @@ const App = function () {
 
   // Render -------------------
   const render = function (time, deltaTime) {
+    // console.log(works[7].material.uniforms.u_hoverXGap.value);
+    // console.log(works[7].material.uniforms.u_uvRate.value);
+    // console.log(works[7].material.uniforms.u_resolution.value);
+    // console.log(works[7].material.uniforms.u_hoverScale.value);
     // for (let i = 0; i < works.length; i++) {
     //   works[i].material.uniforms.u_time.value += deltaTime * 0.0001;
     // }

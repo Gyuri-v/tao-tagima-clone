@@ -57,7 +57,7 @@ table {
   box-sizing: border-box;
 }
 
-.container canvas {
+canvas {
   pointer-events: none;
   position: fixed;
   top: 0;
