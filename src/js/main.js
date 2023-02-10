@@ -3,6 +3,7 @@ import { gsap } from 'gsap';
 
 import vertexShader from '../shader/vertex.glsl';
 import fragmentShader from '../shader/fragment.glsl';
+import { ShaderMaterial } from 'three';
 
 const DEBUG = location.search.indexOf('debug') > -1;
 
@@ -194,6 +195,12 @@ const App = function () {
     }
   };
 
+  const shaderUniforms = {
+    u_accel: { value: new THREE.Vector2(0.5, 2) },
+    u_uvRate: { value: new THREE.Vector2(parameters.imageRatio.width, 1) },
+    u_time: { value: 0 },
+  };
+
   const setModels = function () {
     // default geometry, material
     defalutGeometry = new THREE.PlaneGeometry(parameters.imageRatio.width, parameters.imageRatio.height, 30, 30);
@@ -201,27 +208,30 @@ const App = function () {
       side: THREE.DoubleSide,
       transparent: true,
       depthTest: false,
-      uniforms: {
-        u_accel: { value: new THREE.Vector2(0.5, 2) },
-        u_resolution: { value: new THREE.Vector2(ww, wh) },
-        u_progress: { value: 0 },
-        u_texture: { value: null },
-        u_time: { value: 0 },
-        u_hover: { value: new THREE.Vector3() },
-        u_hoverScale: { value: 1 },
-        u_hoverXGap: { value: 0 },
-        u_uvRate: { value: new THREE.Vector2(parameters.imageRatio.width, 1) },
-        u_opacity: { value: 0 },
-      },
+      uniforms: Object.assign(
+        {
+          u_resolution: { value: new THREE.Vector2(ww, wh) },
+          u_progress: { value: 0 },
+          u_texture: { value: null },
+          u_hover: { value: new THREE.Vector3() },
+          u_hoverScale: { value: 1 },
+          u_hoverXGap: { value: 0 },
+          u_opacity: { value: 0 },
+        },
+        shaderUniforms,
+      ),
       vertexShader: vertexShader,
       fragmentShader: fragmentShader,
       // wireframe: true,
     });
 
+    console.log(defalutMaterial.uniforms);
+
     // plane meshes 만들기
     for (let i = 0; i < works.length; i++) {
       const material = defalutMaterial.clone();
       works[i].material = material;
+      works[i].material.uniforms.u_time = shaderUniforms.u_time;
 
       const texture = textureLoader.load(works[i].image);
       material.uniforms.u_texture.value = texture;
@@ -489,7 +499,7 @@ const App = function () {
 
   // Render -------------------
   const render = function (time, deltaTime) {
-    works[0].material.uniforms.u_time.value += deltaTime * 0.0001;
+    shaderUniforms.u_time.value += deltaTime * 0.0001;
 
     renderer.render(scene, camera);
   };
