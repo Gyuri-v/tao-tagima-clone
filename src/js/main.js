@@ -276,13 +276,10 @@ const App = function () {
   // Menu Trigger 클릭
   const onClickMenuTrigger = function () {
     if (currentClickMesh) {
-      const targetNode = currentClickMesh;
       const targetIndex = currentClickMesh.index;
 
       const plane = meshes[targetIndex];
-      const planeHoverUniformValue = plane.material.uniforms.u_hover.value;
       const planeHoverScaleUniform = plane.material.uniforms.u_hoverScale;
-      const planeHoverXgapUniform = plane.material.uniforms.u_hoverXGap;
       const planePogressUniform = plane.material.uniforms.u_progress;
       const planeOpacityUniform = plane.material.uniforms.u_opacity;
 
@@ -323,8 +320,6 @@ const App = function () {
     const planeHoverUniformValue = plane.material.uniforms.u_hover.value;
     const planeHoverScaleUniform = plane.material.uniforms.u_hoverScale;
     const planeHoverXgapUniform = plane.material.uniforms.u_hoverXGap;
-    const planePogressUniform = plane.material.uniforms.u_progress;
-    const planeOpacityUniform = plane.material.uniforms.u_opacity;
 
     targetNode.removeEventListener('mousemove', onMouseMoveList);
     targetNode.removeEventListener('mouseleave', onMouseLeaveList);
@@ -343,10 +338,6 @@ const App = function () {
     // hover wave remove
     plane.userData.hoverTween && plane.userData.hoverTween.kill();
     plane.userData.hoverTween = gsap.to(planeHoverUniformValue, 0.35, { x: 0, y: 0, z: 0, ease: 'cubic.out' });
-
-    // hover texture animation
-    // plane.userData.hoverProgressTween && plane.userData.hoverProgressTween.kill();
-    // planePogressUniform.value = 0;
 
     // renderorder, currenHoverMesh, opacity 은 유지
 
