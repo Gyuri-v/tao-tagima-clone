@@ -39,7 +39,9 @@ void main () {
   vec4 rgba2 = texture2D(u_texture, mirroed(uv2));
 
   vec4 rgba = mix(rgba1, rgba2, delay_value);
+
   gl_FragColor = rgba;
   gl_FragColor.a = u_opacity;
-  // gl_FragColor = vec4(0., .0, delay_value, 1.000); 
+  // gl_FragColor.a = .5;
+  // gl_FragColor = vec4(0., 0., 1., 1.000); 
 }

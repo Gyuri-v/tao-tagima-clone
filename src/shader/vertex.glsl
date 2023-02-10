@@ -17,10 +17,12 @@ varying vec2 v_uv1;
 void main () {
   v_uv = uv;
   vec2 _uv = uv - .5;
-  v_uv1 = (_uv * u_uvRate.xy) + .5;
+  // v_uv1 = (_uv * u_uvRate.xy) + .5;
+  v_uv1 = uv;
 
   vec2 xy = uv;
   xy -= u_hover.xy;
+  xy *= u_uvRate;
 
   // float z = sin((length(xy) - u_time) * PI * 5.0) * 0.04;
   // float mask = pow(1.0 - length(xy), .10);
