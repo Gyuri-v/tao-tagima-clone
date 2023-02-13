@@ -3,7 +3,6 @@ import { gsap } from 'gsap';
 
 import vertexShader from '../shader/vertex.glsl';
 import fragmentShader from '../shader/fragment.glsl';
-import { ShaderMaterial } from 'three';
 
 const DEBUG = location.search.indexOf('debug') > -1;
 
@@ -33,7 +32,7 @@ const App = function () {
     fitMeshScale: 0,
     fitViewportScale: 0,
     initScrollTop: 0,
-    hoverScale: 1.5,
+    hoverScale: 1.3,
     listRow: 3,
   };
   const works = [
@@ -298,7 +297,13 @@ const App = function () {
 
       // hoverScale
       plane.userData.hoverScaleTween && plane.userData.hoverScaleTween.kill();
-      plane.userData.hoverScaleTween = gsap.to(planeHoverScaleUniform, 0.5, { value: 1, ease: 'cubic.out' });
+      // plane.userData.hoverScaleTween = gsap.to(planeHoverScaleUniform, 0.5, { value: 1, ease: 'cubic.out' });
+      plane.userData.hoverScaleTween = gsap.to(plane.scale, 0.5, {
+        x: parameters.fitMeshScale,
+        y: parameters.fitMeshScale,
+        z: parameters.fitMeshScale,
+        ease: 'cubic.out',
+      });
 
       // hover texture animation
       plane.userData.hoverProgressTween && plane.userData.hoverProgressTween.kill();
@@ -343,7 +348,8 @@ const App = function () {
 
     // hover x move remove
     plane.userData.hoverXgapTween && plane.userData.hoverXgapTween.kill();
-    plane.userData.hoverXgapTween = gsap.to(planeHoverXgapUniform, 0.35, { value: 0, ease: 'cubic.out' });
+    // plane.userData.hoverXgapTween = gsap.to(planeHoverXgapUniform, 0.35, { value: 0, ease: 'cubic.out' });
+    plane.userData.hoverXgapTween = gsap.to(plane.position, 0.2, { x: plane.c_savePosition.x, ease: 'cubic.out' });
 
     // hover wave remove
     plane.userData.hoverTween && plane.userData.hoverTween.kill();
@@ -380,7 +386,13 @@ const App = function () {
 
     // hoverScale
     plane.userData.hoverScaleTween && plane.userData.hoverScaleTween.kill();
-    plane.userData.hoverScaleTween = gsap.to(planeHoverScaleUniform, 0.5, { value: parameters.hoverScale, ease: 'cubic.out' });
+    // plane.userData.hoverScaleTween = gsap.to(planeHoverScaleUniform, 0.5, { value: parameters.hoverScale, ease: 'cubic.out' });
+    plane.userData.hoverScaleTween = gsap.to(plane.scale, 0.5, {
+      x: parameters.hoverScale * parameters.fitMeshScale,
+      y: parameters.hoverScale * parameters.fitMeshScale,
+      z: parameters.hoverScale * parameters.fitMeshScale,
+      ease: 'cubic.out',
+    });
 
     // hover texture animation
     plane.userData.hoverProgressTween && plane.userData.hoverProgressTween.kill();
@@ -417,7 +429,8 @@ const App = function () {
       const xGap = -(xMove - xMove * parameters.hoverScale);
 
       plane.userData.hoverXgapTween && plane.userData.hoverXgapTween.kill();
-      plane.userData.hoverXgapTween = gsap.to(planeHoverXgapUniform, 0.2, { value: xGap, ease: 'cubic.out' });
+      // plane.userData.hoverXgapTween = gsap.to(planeHoverXgapUniform, 0.2, { value: xGap, ease: 'cubic.out' });
+      plane.userData.hoverXgapTween = gsap.to(plane.position, 0.2, { x: plane.c_savePosition.x + xGap * parameters.fitMeshScale, ease: 'cubic.out' });
     }
   };
 
@@ -438,7 +451,8 @@ const App = function () {
 
     // hover x move
     plane.userData.hoverXgapTween && plane.userData.hoverXgapTween.kill();
-    plane.userData.hoverXgapTween = gsap.to(planeHoverXgapUniform, 0.35, { value: 0, ease: 'cubic.out' });
+    // plane.userData.hoverXgapTween = gsap.to(planeHoverXgapUniform, 0.35, { value: 0, ease: 'cubic.out' });
+    plane.userData.hoverXgapTween = gsap.to(plane.position, 0.2, { x: plane.c_savePosition.x, ease: 'cubic.out' });
 
     // hover wave
     plane.userData.hoverTween && plane.userData.hoverTween.kill();
@@ -446,7 +460,13 @@ const App = function () {
 
     // hoverScale
     plane.userData.hoverScaleTween && plane.userData.hoverScaleTween.kill();
-    plane.userData.hoverScaleTween = gsap.to(planeHoverScaleUniform, 0.5, { value: 1, ease: 'cubic.out' });
+    // plane.userData.hoverScaleTween = gsap.to(planeHoverScaleUniform, 0.5, { value: 1, ease: 'cubic.out' });
+    plane.userData.hoverScaleTween = gsap.to(plane.scale, 0.5, {
+      x: parameters.fitMeshScale,
+      y: parameters.fitMeshScale,
+      z: parameters.fitMeshScale,
+      ease: 'cubic.out',
+    });
 
     // hover texture animation
     plane.userData.hoverProgressTween && plane.userData.hoverProgressTween.kill();
