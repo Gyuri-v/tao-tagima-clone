@@ -9,9 +9,9 @@ const DEBUG = location.search.indexOf('debug') > -1;
 const App = function () {
   // Dom
   let $canvas;
+  const $body = document.body;
   const $container = document.querySelector('.container');
   const $content = $container.querySelector('.content');
-  const $listWrap = $container.querySelector('.list-wrap');
   const $listNodes = $container.querySelectorAll('.list-item');
   const $meshArea = $container.querySelector('.list-item_1 img');
   const $btnMenuTrigger = $container.querySelector('.menu-trigger .btn-menu');
@@ -23,15 +23,12 @@ const App = function () {
   let renderer, scene, camera, light, textureLoader, raycaster;
   let pointer = new THREE.Vector2();
 
-  let meshSize, meshHeight, meshWidth;
-  let defalutGeometry, defalutMaterial, defaultMesh;
-  let listItemMarginRight, listItemMarginToWorldGap;
+  let defalutGeometry, defalutMaterial;
+  let sceneUnit;
+  let contentOpacityTween;
 
   const parameters = {
-    imageRatio: { width: 1, height: 1 },
-    fitMeshScale: 0,
-    fitViewportScale: 0,
-    initScrollTop: 0,
+    imageRatio: { width: 1.777, height: 1 }, //////////////// 계산식 !!!!!!!!!!
     hoverScale: 1.3,
     listRow: 3,
   };
@@ -98,8 +95,8 @@ const App = function () {
     },
   ];
 
-  const meshes = [];
-  const hoveredMeshes = [];
+  const listMeshes = [];
+  const hoveredlistMeshes = [];
   let currentHoverMesh = null;
   let currentClickMesh = null;
 
@@ -134,18 +131,15 @@ const App = function () {
     // Raycaster
     raycaster = new THREE.Raycaster();
 
-    // Value
-    parameters.initScrollTop = scrollY;
-    parameters.imageRatio.width = 1.777; ////////// ------------ 계산식 만들기
-
     // Setting
+    setListStyle();
     setModels();
 
     // Loading
     THREE.DefaultLoadingManager.onProgress = function (url, itemsLoaded, itemsTotal) {
       if (itemsLoaded === itemsTotal) {
-        setListStyle();
         setEvent();
+        onScroll();
         gsap.ticker.add(render);
       }
     };
@@ -161,36 +155,14 @@ const App = function () {
     renderer.setSize(ww, wh);
     renderer.setPixelRatio(Math.min(2, window.devicePixelRatio));
 
-    meshAreaRect = $meshArea.getBoundingClientRect();
-    changeSizingViewOffset(meshAreaRect, ww, wh);
-
-    listItemMarginToWorldGap = { x: listItemMarginRight / meshAreaRect.height, y: meshHeight };
-
-    parameters.fitMeshScale = meshAreaRect.height / wh;
-    for (let i = 0; i < meshes.length; i++) {
-      const item = meshes[i];
-
-      item.position.x = (meshWidth + listItemMarginToWorldGap.x) * parameters.fitMeshScale * (i % parameters.listRow);
-      item.position.y = -(meshHeight + meshHeight) * parameters.fitMeshScale * Math.floor(i / parameters.listRow);
-      item.c_savePosition = item.position.clone();
-
-      item.scale.set(parameters.fitMeshScale, parameters.fitMeshScale, parameters.fitMeshScale);
-    }
-
-    setListStyle();
-
-    parameters.initScrollTop = scrollY;
+    setSyncListItems();
   };
 
   // Setting -------------------
   const setListStyle = function () {
     for (let i = 0; i < $listNodes.length; i++) {
       const valueY = i % parameters.listRow == 1 ? -40 : i % parameters.listRow == 2 ? -17 : 0;
-
       $listNodes[i].style.transform = `translate3d(0, ${valueY}px, 0)`;
-      meshes[i].position.y = meshes[i].c_savePosition.y - valueY / wh;
-      meshes[i].c_savePosition.y = meshes[i].position.y;
-      // meshes[i].defaultY = valueY;
     }
   };
 
@@ -202,7 +174,7 @@ const App = function () {
 
   const setModels = function () {
     // default geometry, material
-    defalutGeometry = new THREE.PlaneGeometry(parameters.imageRatio.width, parameters.imageRatio.height, 30, 30);
+    defalutGeometry = new THREE.PlaneGeometry(1, 1, 30, 30);
     defalutMaterial = new THREE.ShaderMaterial({
       side: THREE.DoubleSide,
       transparent: true,
@@ -215,6 +187,7 @@ const App = function () {
           u_hover: { value: new THREE.Vector3() },
           u_hoverScale: { value: 1 },
           u_hoverXGap: { value: 0 },
+          u_clickProgress: { value: 0 },
           u_opacity: { value: 0 },
         },
         shaderUniforms,
@@ -224,9 +197,7 @@ const App = function () {
       // wireframe: true,
     });
 
-    console.log(defalutMaterial.uniforms);
-
-    // plane meshes 만들기
+    // plane listMeshes 만들기
     for (let i = 0; i < works.length; i++) {
       const material = defalutMaterial.clone();
       works[i].material = material;
@@ -240,36 +211,28 @@ const App = function () {
       mesh.index = i;
 
       scene.add(mesh);
-      meshes.push(mesh);
+      listMeshes.push(mesh);
     }
-    defaultMesh = meshes[0];
 
-    // default mesh 사이즈 구하기
-    meshSize = new THREE.Box3().setFromObject(defaultMesh);
-    meshHeight = meshSize.max.y - meshSize.min.y;
-    meshWidth = meshSize.max.x - meshSize.min.x;
+    // 리스트 sync
+    setSyncListItems();
+  };
 
-    // plane meshes scale 값 정하기
-    parameters.fitMeshScale = meshAreaRect.height / wh;
-    parameters.fitViewportScale = 1 / parameters.fitMeshScale;
+  const setSyncListItems = function () {
+    sceneUnit = 2 * (camera.position.z - listMeshes[0].position.z) * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+    sceneUnit /= wh;
 
-    listItemMarginRight = window.getComputedStyle($listNodes[0]).marginRight.split('px')[0];
-    listItemMarginToWorldGap = { x: listItemMarginRight / meshAreaRect.height, y: meshHeight };
+    const scrollTop = window.pageYOffset;
+    listMeshes.forEach((plane, index) => {
+      const rect = $listNodes[index].querySelector('img').getBoundingClientRect();
 
-    // camera fov, viewOffset 변경
-    changeCameraFov(camera, defaultMesh, meshSize);
-    changeSizingViewOffset(meshAreaRect, ww, wh);
+      plane.scale.set(rect.width * sceneUnit, rect.height * sceneUnit, 1);
+      plane.position.x = (rect.left + rect.width / 2 - ww / 2) * sceneUnit;
+      plane.position.y = -(rect.top + scrollTop + rect.height / 2 - wh / 2) * sceneUnit;
 
-    // plane meshes 위치, 스케일 정하기
-    for (let i = 0; i < meshes.length; i++) {
-      const item = meshes[i];
-
-      item.position.x = (meshWidth + listItemMarginToWorldGap.x) * parameters.fitMeshScale * (i % parameters.listRow);
-      item.position.y = -(meshHeight + meshHeight) * parameters.fitMeshScale * Math.floor(i / parameters.listRow);
-      item.c_savePosition = item.position.clone();
-
-      item.scale.set(parameters.fitMeshScale, parameters.fitMeshScale, parameters.fitMeshScale);
-    }
+      plane.userData.offset = plane.position.clone();
+      plane.userData.scale = plane.scale.clone();
+    });
   };
 
   const setEvent = function () {
@@ -282,100 +245,22 @@ const App = function () {
     $btnMenuTrigger.addEventListener('click', onClickMenuTrigger);
   };
 
-  // Menu Trigger 클릭
-  const onClickMenuTrigger = function () {
-    if (currentClickMesh) {
-      const targetIndex = currentClickMesh.index;
-
-      const plane = meshes[targetIndex];
-      const planeHoverScaleUniform = plane.material.uniforms.u_hoverScale;
-      const planePogressUniform = plane.material.uniforms.u_progress;
-      const planeOpacityUniform = plane.material.uniforms.u_opacity;
-
-      // renderOrder
-      plane.renderOrder = 0;
-
-      // hoverScale
-      plane.userData.hoverScaleTween && plane.userData.hoverScaleTween.kill();
-      // plane.userData.hoverScaleTween = gsap.to(planeHoverScaleUniform, 0.5, { value: 1, ease: 'cubic.out' });
-      plane.userData.hoverScaleTween = gsap.to(plane.scale, 0.5, {
-        x: parameters.fitMeshScale,
-        y: parameters.fitMeshScale,
-        z: parameters.fitMeshScale,
-        ease: 'cubic.out',
-      });
-
-      // hover texture animation
-      plane.userData.hoverProgressTween && plane.userData.hoverProgressTween.kill();
-      plane.userData.hoverProgressTween = gsap.to(planePogressUniform, 1, {
-        value: 0,
-        ease: 'cubic.out',
-        onComplete: function () {
-          // opacity
-          planeOpacityUniform.value = 0;
-
-          // curren hover mesh
-          currentHoverMesh = null;
-        },
-      });
-
-      // content
-      $content.style.visibility = 'inherit';
-      $content.style.opacity = 1;
-    }
-  };
-
-  // Event - ListItem 들에 대한
-  const onClickList = function (e) {
-    const targetNode = e.target.tagName !== 'LI' ? e.target.closest('li') : e.target;
-    const parentNodes = [...targetNode.parentElement.children];
-    const targetIndex = parentNodes.indexOf(targetNode);
-
-    const plane = meshes[targetIndex];
-    const planeHoverUniformValue = plane.material.uniforms.u_hover.value;
-    const planeHoverScaleUniform = plane.material.uniforms.u_hoverScale;
-    const planeHoverXgapUniform = plane.material.uniforms.u_hoverXGap;
-
-    targetNode.removeEventListener('mousemove', onMouseMoveList);
-    targetNode.removeEventListener('mouseleave', onMouseLeaveList);
-
-    // curren click mesh
-    currentClickMesh = plane;
-
-    // hoverScale target
-    plane.userData.hoverScaleTween && plane.userData.hoverScaleTween.kill();
-    plane.userData.hoverScaleTween = gsap.to(planeHoverScaleUniform, 0.35, { value: parameters.fitViewportScale, ease: 'cubic.out' });
-
-    // hover x move remove
-    plane.userData.hoverXgapTween && plane.userData.hoverXgapTween.kill();
-    // plane.userData.hoverXgapTween = gsap.to(planeHoverXgapUniform, 0.35, { value: 0, ease: 'cubic.out' });
-    plane.userData.hoverXgapTween = gsap.to(plane.position, 0.2, { x: plane.c_savePosition.x, ease: 'cubic.out' });
-
-    // hover wave remove
-    plane.userData.hoverTween && plane.userData.hoverTween.kill();
-    plane.userData.hoverTween = gsap.to(planeHoverUniformValue, 0.35, { x: 0, y: 0, z: 0, ease: 'cubic.out' });
-
-    // renderorder, currenHoverMesh, opacity 은 유지
-
-    // content
-    $content.style.visibility = 'hidden';
-    $content.style.opacity = 0;
-  };
-
+  // Event -----------------
   const onMouseEnterList = function (e) {
+    if (currentClickMesh) return;
+
     const targetNode = e.target.closest('li');
     const parentNodes = [...targetNode.parentElement.children];
     const targetIndex = parentNodes.indexOf(targetNode);
 
-    const plane = meshes[targetIndex];
-    const planeHoverScaleUniform = plane.material.uniforms.u_hoverScale;
+    const plane = listMeshes[targetIndex];
     const planePogressUniform = plane.material.uniforms.u_progress;
     const planeOpacityUniform = plane.material.uniforms.u_opacity;
 
     if (currentHoverMesh !== plane) {
       // curren hover mesh
       currentHoverMesh = plane;
-      hoveredMeshes.push(plane);
+      hoveredlistMeshes.push(plane);
 
       // opacity
       planeOpacityUniform.value = 1;
@@ -385,12 +270,10 @@ const App = function () {
     }
 
     // hoverScale
-    plane.userData.hoverScaleTween && plane.userData.hoverScaleTween.kill();
-    // plane.userData.hoverScaleTween = gsap.to(planeHoverScaleUniform, 0.5, { value: parameters.hoverScale, ease: 'cubic.out' });
-    plane.userData.hoverScaleTween = gsap.to(plane.scale, 0.5, {
-      x: parameters.hoverScale * parameters.fitMeshScale,
-      y: parameters.hoverScale * parameters.fitMeshScale,
-      z: parameters.hoverScale * parameters.fitMeshScale,
+    plane.userData.scaleTween && plane.userData.scaleTween.kill();
+    plane.userData.scaleTween = gsap.to(plane.scale, 0.5, {
+      x: parameters.hoverScale * plane.userData.scale.x,
+      y: parameters.hoverScale * plane.userData.scale.y,
       ease: 'cubic.out',
     });
 
@@ -408,9 +291,8 @@ const App = function () {
     const parentNodes = [...targetNode.parentElement.children];
     const targetIndex = parentNodes.indexOf(targetNode);
 
-    const plane = meshes[targetIndex];
+    const plane = listMeshes[targetIndex];
     const planeHoverUniformValue = plane.material.uniforms.u_hover.value;
-    const planeHoverXgapUniform = plane.material.uniforms.u_hoverXGap;
 
     pointer.x = (e.clientX / ww) * 2 - 1;
     pointer.y = -(e.clientY / wh) * 2 + 1;
@@ -425,12 +307,10 @@ const App = function () {
       plane.userData.hoverTween = gsap.to(planeHoverUniformValue, 0.75, { x: intersected[0].uv.x, y: intersected[0].uv.y, z: 1, ease: 'cubic.out' });
 
       // hover x move
-      const xMove = (plane.position.x - intersected[0].point.x) * parameters.fitViewportScale;
-      const xGap = -(xMove - xMove * parameters.hoverScale);
-
+      const xMove = plane.userData.offset.x - intersected[0].point.x;
+      const xGap = xMove * (parameters.hoverScale - 1);
       plane.userData.hoverXgapTween && plane.userData.hoverXgapTween.kill();
-      // plane.userData.hoverXgapTween = gsap.to(planeHoverXgapUniform, 0.2, { value: xGap, ease: 'cubic.out' });
-      plane.userData.hoverXgapTween = gsap.to(plane.position, 0.2, { x: plane.c_savePosition.x + xGap * parameters.fitMeshScale, ease: 'cubic.out' });
+      plane.userData.hoverXgapTween = gsap.to(plane.position, 0.2, { x: plane.userData.offset.x + xGap, ease: 'cubic.out' });
     }
   };
 
@@ -439,10 +319,8 @@ const App = function () {
     const parentNodes = [...targetNode.parentElement.children];
     const targetIndex = parentNodes.indexOf(targetNode);
 
-    const plane = meshes[targetIndex];
+    const plane = listMeshes[targetIndex];
     const planeHoverUniformValue = plane.material.uniforms.u_hover.value;
-    const planeHoverScaleUniform = plane.material.uniforms.u_hoverScale;
-    const planeHoverXgapUniform = plane.material.uniforms.u_hoverXGap;
     const planePogressUniform = plane.material.uniforms.u_progress;
     const planeOpacityUniform = plane.material.uniforms.u_opacity;
 
@@ -451,20 +329,17 @@ const App = function () {
 
     // hover x move
     plane.userData.hoverXgapTween && plane.userData.hoverXgapTween.kill();
-    // plane.userData.hoverXgapTween = gsap.to(planeHoverXgapUniform, 0.35, { value: 0, ease: 'cubic.out' });
-    plane.userData.hoverXgapTween = gsap.to(plane.position, 0.2, { x: plane.c_savePosition.x, ease: 'cubic.out' });
+    plane.userData.hoverXgapTween = gsap.to(plane.position, 0.2, { x: plane.userData.offset.x, ease: 'cubic.out' });
 
     // hover wave
     plane.userData.hoverTween && plane.userData.hoverTween.kill();
     plane.userData.hoverTween = gsap.to(planeHoverUniformValue, 0.35, { x: 0, y: 0, z: 0, ease: 'cubic.out' });
 
     // hoverScale
-    plane.userData.hoverScaleTween && plane.userData.hoverScaleTween.kill();
-    // plane.userData.hoverScaleTween = gsap.to(planeHoverScaleUniform, 0.5, { value: 1, ease: 'cubic.out' });
-    plane.userData.hoverScaleTween = gsap.to(plane.scale, 0.5, {
-      x: parameters.fitMeshScale,
-      y: parameters.fitMeshScale,
-      z: parameters.fitMeshScale,
+    plane.userData.scaleTween && plane.userData.scaleTween.kill();
+    plane.userData.scaleTween = gsap.to(plane.scale, 0.5, {
+      x: plane.userData.scale.x,
+      y: plane.userData.scale.y,
       ease: 'cubic.out',
     });
 
@@ -486,35 +361,123 @@ const App = function () {
     targetNode.removeEventListener('mouseleave', onMouseLeaveList);
   };
 
-  // Scroll -----------------
-  const onScroll = function (e) {
-    let scrollRatio = (scrollY - parameters.initScrollTop) / wh;
+  const onClickList = function (e) {
+    const targetNode = e.target.tagName !== 'LI' ? e.target.closest('li') : e.target;
+    const parentNodes = [...targetNode.parentElement.children];
+    const targetIndex = parentNodes.indexOf(targetNode);
 
-    for (let i = 0; i < meshes.length; i++) {
-      meshes[i].position.y = meshes[i].c_savePosition.y + scrollRatio;
+    const plane = listMeshes[targetIndex];
+    const planeHoverUniformValue = plane.material.uniforms.u_hover.value;
+    const planeClickProgressUniform = plane.material.uniforms.u_clickProgress;
+
+    targetNode.removeEventListener('mousemove', onMouseMoveList);
+    targetNode.removeEventListener('mouseleave', onMouseLeaveList);
+
+    // curren click mesh
+    currentClickMesh = plane;
+
+    // hoverScale target
+    plane.userData.scaleTween && plane.userData.scaleTween.kill();
+    plane.userData.scaleTween = gsap.to(plane.scale, 0.7, { x: wh * parameters.imageRatio.width * sceneUnit, y: wh * sceneUnit, delay: 0.2, ease: 'cubic.out' });
+
+    // position tween
+    plane.userData.positionTween && plane.userData.positionTween.kill();
+    plane.userData.positionTween = gsap.to(plane.position, 0.7, { x: 0, y: 0, z: 0, delay: 0.2, ease: 'cubic.out' });
+
+    // hover x move remove
+    plane.userData.hoverXgapTween && plane.userData.hoverXgapTween.kill();
+    plane.userData.hoverXgapTween = gsap.to(plane.position, 0.2, { x: plane.userData.offset.x, ease: 'cubic.out' });
+
+    // hover wave remove
+    plane.userData.hoverTween && plane.userData.hoverTween.kill();
+    plane.userData.hoverTween = gsap.to(planeHoverUniformValue, 0.35, { x: 0, y: 0, z: 0, ease: 'cubic.out' });
+
+    // click progress
+    plane.userData.clickProgressTween && plane.userData.clickProgressTween.kill();
+    plane.userData.clickProgressTween = gsap.to(planeClickProgressUniform, 1, { value: Math.PI * 0.1, ease: 'cubic.out' });
+
+    // renderorder, currenHoverMesh, opacity 은 유지
+
+    // content
+    contentOpacityTween = gsap.to($content, 0.7, {
+      opacity: 0,
+      ease: 'cubic.out',
+      onComplete: function () {
+        $content.style.visibility = 'hidden';
+        $body.style.overflow = 'hidden';
+      },
+    });
+  };
+
+  const onClickMenuTrigger = function () {
+    if (currentClickMesh) {
+      const targetIndex = currentClickMesh.index;
+
+      const plane = listMeshes[targetIndex];
+      const planePogressUniform = plane.material.uniforms.u_progress;
+      const planeOpacityUniform = plane.material.uniforms.u_opacity;
+      const planeClickProgressUniform = plane.material.uniforms.u_clickProgress;
+
+      // scale
+      plane.userData.scaleTween && plane.userData.scaleTween.kill();
+      plane.userData.scaleTween = gsap.to(plane.scale, 0.8, { x: plane.userData.scale.x, y: plane.userData.scale.y, ease: 'cubic.out' });
+
+      // position tween
+      let scrollTop = window.pageYOffset;
+      plane.userData.positionTween && plane.userData.positionTween.kill();
+      plane.userData.positionTween = gsap.to(plane.position, 0.6, {
+        x: plane.userData.offset.x,
+        y: plane.userData.offset.y + scrollTop * sceneUnit,
+        ease: 'cubic.out',
+        onComplete: function () {
+          // currentHoverMesh
+          currentHoverMesh = null;
+
+          // currentClickMesh
+          currentClickMesh = null;
+        },
+      });
+
+      // click progress
+      plane.userData.clickProgressTween && plane.userData.clickProgressTween.kill();
+      plane.userData.clickProgressTween = gsap.to(planeClickProgressUniform, 1, { value: 0, ease: 'cubic.out' });
+
+      // hover texture animation
+      plane.userData.hoverProgressTween && plane.userData.hoverProgressTween.kill();
+      plane.userData.hoverProgressTween = gsap.to(planePogressUniform, 1, {
+        value: 0,
+        ease: 'cubic.out',
+        onComplete: function () {
+          // opacity
+          planeOpacityUniform.value = 0;
+
+          // renderOrder
+          plane.renderOrder = 0;
+        },
+      });
+
+      // content
+      contentOpacityTween = gsap.to($content, 0.8, {
+        opacity: 1,
+        ease: 'cubic.out',
+        onStart: function () {
+          $content.style.visibility = 'inherit';
+        },
+        onComplete: function () {
+          $body.style.overflow = 'visible';
+        },
+      });
     }
   };
 
-  // Change -----------------
-  const changeCameraFov = function (camera, targetMesh, meshSize) {
-    const meshHeight = meshSize.max.y - meshSize.min.y;
+  // Scroll -----------------
+  const onScroll = function (e) {
+    const scrollTop = window.pageYOffset;
 
-    let cameraDistanceFromMesh = camera.position.distanceTo(targetMesh.position);
-
-    camera.fov = 2 * (180 / Math.PI) * Math.atan(meshHeight / (2 * cameraDistanceFromMesh));
-    camera.updateProjectionMatrix();
-  };
-
-  const changeSizingViewOffset = function (meshAreaRect, ww, wh) {
-    camera.setViewOffset(
-      //
-      ww,
-      wh,
-      ww / 2 - meshAreaRect.width / 2 - (meshAreaRect.left - 0),
-      wh / 2 - meshAreaRect.height / 2 - (meshAreaRect.top - 0),
-      ww,
-      wh,
-    );
+    for (let i = 0; i < listMeshes.length; i++) {
+      const plane = listMeshes[i];
+      plane.position.y = plane.userData.offset.y + scrollTop * sceneUnit;
+    }
   };
 
   // Render -------------------

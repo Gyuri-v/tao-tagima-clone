@@ -5,6 +5,7 @@ uniform vec3 u_hover;
 uniform vec2 u_uvRate;
 uniform float u_hoverScale;
 uniform float u_hoverXGap;
+uniform float u_clickProgress;
 uniform float u_time;
 uniform sampler2D u_texture;
 
@@ -27,13 +28,20 @@ void main () {
   // float z = sin((length(xy) - u_time) * PI * 5.0) * 0.04;
   // float mask = pow(1.0 - length(xy), .10);
   // z *= mask;
-  float z = sin((length(xy) - u_time) * PI * 15.0) * 0.1 * u_hover.z;
+  float z = sin((length(xy) - u_time) * PI * 15.0) * 0.08 * u_hover.z;
   float mask = pow(1.0 - length(xy), 5.);
   z *= mask;
 
   vec3 _position = vec3(position.x, position.y, position.z + z);
-  // _position *= u_hoverScale;
+  _position *= u_hoverScale;
   _position.x += u_hoverXGap;
+
+
+  float elevation = 
+    sin(_position.x * 4. + u_clickProgress * 10.) * 
+    sin(_position.z * 1.5 + u_clickProgress * 10.) * 
+    .2;
+  _position.z += elevation;
 
   gl_Position = projectionMatrix * modelViewMatrix * vec4(_position, 1.0);
 }
