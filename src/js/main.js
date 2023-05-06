@@ -35,62 +35,62 @@ const App = function () {
   const works = [
     {
       name: 'MN concept movie',
-      image: './resources/images/MN.jpeg',
+      image: 'resources/images/MN.jpeg',
       material: null,
     },
     {
       name: 'TELE-PLAY - prism',
-      image: './resources/images/prism.jpeg',
+      image: 'resources/images/prism.jpeg',
       material: null,
     },
     {
       name: 'CITIZEN - ATTESA',
-      image: './resources/images/ATTESA.jpeg',
+      image: 'resources/images/ATTESA.jpeg',
       material: null,
     },
     {
       name: 'FUTURE FOOD TALK',
-      image: './resources/images/AJINOMOTO.jpeg',
+      image: 'resources/images/AJINOMOTO.jpeg',
       material: null,
     },
     {
       name: 'MN concept movie',
-      image: './resources/images/MN.jpeg',
+      image: 'resources/images/MN.jpeg',
       material: null,
     },
     {
       name: 'TELE-PLAY - prism',
-      image: './resources/images/prism.jpeg',
+      image: 'resources/images/prism.jpeg',
       material: null,
     },
     {
       name: 'CITIZEN - ATTESA',
-      image: './resources/images/ATTESA.jpeg',
+      image: 'resources/images/ATTESA.jpeg',
       material: null,
     },
     {
       name: 'FUTURE FOOD TALK',
-      image: './resources/images/AJINOMOTO.jpeg',
+      image: 'resources/images/AJINOMOTO.jpeg',
       material: null,
     },
     {
       name: 'MN concept movie',
-      image: './resources/images/MN.jpeg',
+      image: 'resources/images/MN.jpeg',
       material: null,
     },
     {
       name: 'TELE-PLAY - prism',
-      image: './resources/images/prism.jpeg',
+      image: 'resources/images/prism.jpeg',
       material: null,
     },
     {
       name: 'CITIZEN - ATTESA',
-      image: './resources/images/ATTESA.jpeg',
+      image: 'resources/images/ATTESA.jpeg',
       material: null,
     },
     {
       name: 'FUTURE FOOD TALK',
-      image: './resources/images/AJINOMOTO.jpeg',
+      image: 'resources/images/AJINOMOTO.jpeg',
       material: null,
     },
   ];
